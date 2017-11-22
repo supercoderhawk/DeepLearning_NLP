@@ -9,7 +9,7 @@ def train_cws():
   data_path = '../dnlp/data/cws/pku_training.pickle'
   config = DnnCrfConfig()
   dnncrf = DnnCrf(config=config, data_path=data_path,nn='lstm')
-  dnncrf.fit()
+  dnncrf.fit_ll()
 
 
 def test_cws():
