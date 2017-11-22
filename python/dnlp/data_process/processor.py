@@ -22,12 +22,11 @@ class Preprocessor(object):
     else:
       return dictionary
 
-  def build_dictionary(self, *, content: str = '', files: tuple = (), output_dict_path: str = '',
-                       reverse: bool = False):
-    if content == '' and files == ():
+  def build_dictionary(self, *, files: tuple = (), output_dict_path: str = '', reverse: bool = False):
+    if files == ():
       raise Exception('input is none')
 
-    chs = set(content)
+    chs = set('')
     file_content = ''
     for file in files:
       with open(self.base_folder + file, encoding='utf8') as f:
@@ -43,7 +42,7 @@ class Preprocessor(object):
     if output_dict_path != '':
       with open(output_dict_path, 'w', encoding='utf8') as o_f:
         for ch, idx in zip(dictionary.keys(), dictionary.values()):
-          o_f.write(ch + ' ' + str(idx)+'\n')
+          o_f.write(ch + ' ' + str(idx) + '\n')
     if reverse:
       return dictionary, dict(zip(dictionary.values(), dictionary.keys()))
     else:
