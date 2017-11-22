@@ -7,10 +7,11 @@ from dnlp.config.config import DnnCrfConfig
 
 
 class DnnCrf(DnnCrfBase):
-  def __init__(self, *,config: DnnCrfConfig, data_path: str = '', dtype: type = tf.float32, mode: str = 'train',nn:str, model_path:str=''):
+  def __init__(self, *, config: DnnCrfConfig = None, data_path: str = '', dtype: type = tf.float32, mode: str = 'train',
+               train:str='ll',nn: str, model_path: str = ''):
     if mode not in ['train', 'predict']:
       raise Exception('mode error')
-    if nn not in ['mlp','lstm','gru']:
+    if nn not in ['mlp', 'rnn', 'lstm', 'gru']:
       raise Exception('name of neural network entered is not supported')
 
     DnnCrfBase.__init__(self, config, data_path, mode, model_path)
@@ -25,6 +26,8 @@ class DnnCrf(DnnCrfBase):
     # 输入层
     if mode == 'train':
       self.input = tf.placeholder(tf.int32, [self.batch_size, self.batch_length, self.windows_size])
+      self.real_indices = tf.placeholder(tf.int32, [self.batch_size, self.batch_length])
+      self.seq_length = tf.placeholder(tf.int32, [self.batch_size])
     else:
       self.input = tf.placeholder(tf.int32, [None, self.windows_size])
     # 查找表层
@@ -33,14 +36,21 @@ class DnnCrf(DnnCrfBase):
     if nn == 'mlp':
       self.hidden_layer = self.get_mlp_layer(tf.transpose(self.embedding_layer))
     elif nn == 'lstm':
-      self.hidden_layer = self.get_lstm_layer(tf.transpose(self.embedding_layer))
-    else:
+      self.hidden_layer = self.get_lstm_layer(self.embedding_layer)
+    elif nn == 'gru':
       self.hidden_layer = self.get_gru_layer(tf.transpose(self.embedding_layer))
+    else:
+      self.hidden_layer = self.get_rnn_layer(tf.transpose(self.embedding_layer))
     # 输出层
     self.output = self.get_output_layer(self.hidden_layer)
 
     if mode == 'predict':
       self.output = tf.squeeze(self.output, axis=2)
+    elif train == 'll':
+      self.ll_loss, _ = tf.contrib.crf.crf_log_likelihood(self.output, self.real_indices, self.seq_length,
+                                                          self.transition)
+      self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
+      self.train_ll = self.optimizer.minimize(-self.ll_loss)
     else:
       # 构建训练函数
       # 训练用placeholder
@@ -55,6 +65,7 @@ class DnnCrf(DnnCrfBase):
       self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
       self.train = self.optimizer.minimize(self.loss)
       self.train_with_init = self.optimizer.minimize(self.loss_with_init)
+
 
   def fit(self, epochs: int = 100, interval: int = 20):
     with tf.Session() as sess:
@@ -119,6 +130,26 @@ class DnnCrf(DnnCrfBase):
         feed_dict[self.trans_init_curr] = trans_init_neg_indices
         sess.run(self.train_with_init, feed_dict)
 
+  def fit_ll(self,epochs: int = 100, interval: int = 20):
+    with tf.Session() as sess:
+      tf.global_variables_initializer().run()
+      saver = tf.train.Saver(max_to_keep=epochs)
+      for epoch in range(1, epochs + 1):
+        print('epoch:', epoch)
+        for _ in range(self.batch_count):
+          characters, labels, lengths = self.get_batch()
+          #scores = sess.run(self.output, feed_dict={self.input: characters})
+          feed_dict = {self.input: characters, self.real_indices:labels, self.seq_length:lengths}
+          sess.run(self.train_ll, feed_dict=feed_dict)
+          # self.fit_batch(characters, labels, lengths, sess)
+        # if epoch % interval == 0:
+        model_path = '../dnlp/models/cws{0}.ckpt'.format(epoch)
+        saver.save(sess, model_path)
+        self.save_config(model_path)
+
+  def fit_batch_ll(self):
+    pass
+
   def generate_transition_update_index(self, correct_labels, current_labels):
     if correct_labels.shape != current_labels.shape:
       print('sequence length is not equal')
@@ -176,11 +207,17 @@ class DnnCrf(DnnCrfBase):
     layer = tf.sigmoid(tf.tensordot(hidden_weight, layer, [[1], [0]]) + hidden_bias)
     return layer
 
+  def get_rnn_layer(self, layer: tf.Tensor) -> tf.Tensor:
+    rnn = tf.nn.rnn_cell.RNNCell(self.hidden_units)
+    rnn_output, rnn_out_state = tf.nn.dynamic_rnn(rnn, layer, dtype=self.dtype)
+    self.params += [v for v in tf.global_variables() if v.name.startswith('rnn')]
+    return tf.transpose(rnn_output)
+
   def get_lstm_layer(self, layer: tf.Tensor) -> tf.Tensor:
-    lstm = tf.nn.rnn_cell.BasicLSTMCell(self.hidden_units)
+    lstm = tf.nn.rnn_cell.LSTMCell(self.hidden_units)
     lstm_output, lstm_out_state = tf.nn.dynamic_rnn(lstm, layer, dtype=self.dtype)
     self.params += [v for v in tf.global_variables() if v.name.startswith('rnn')]
-    return tf.transpose(lstm_output)
+    return lstm_output
 
   def get_gru_layer(self, layer: tf.Tensor) -> tf.Tensor:
     gru = tf.nn.rnn_cell.GRUCell(self.hidden_units)
@@ -192,10 +229,10 @@ class DnnCrf(DnnCrfBase):
     return tf.layers.dropout(layer, self.dropout_rate)
 
   def get_output_layer(self, layer: tf.Tensor) -> tf.Tensor:
-    output_weight = self.__get_variable([self.tags_count, self.hidden_units], 'output_weight')
-    output_bias = self.__get_variable([self.tags_count, 1, 1], 'output_bias')
+    output_weight = self.__get_variable([self.hidden_units,self.tags_count], 'output_weight')
+    output_bias = self.__get_variable([1, 1, self.tags_count ], 'output_bias')
     self.params += [output_weight, output_bias]
-    return tf.tensordot(output_weight, layer, [[1], [0]]) + output_bias
+    return tf.tensordot( layer,output_weight, [[2], [0]]) + output_bias
 
   def get_loss(self) -> (tf.Tensor, tf.Tensor):
     output_loss = tf.reduce_sum(tf.gather_nd(self.output, self.ll_curr) - tf.gather_nd(self.output, self.ll_corr))

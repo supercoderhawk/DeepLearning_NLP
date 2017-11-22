@@ -6,7 +6,7 @@ from dnlp.utils.constant import BATCH_PAD, STRT_VAL, END_VAL, TAG_PAD, TAG_BEGIN
 
 
 class DnnCrfBase(object):
-  def __init__(self, config: DnnCrfConfig, data_path: str = '', mode: str = 'train', model_path: str = ''):
+  def __init__(self, config: DnnCrfConfig=None, data_path: str = '', mode: str = 'train', model_path: str = ''):
     # 加载数据
     self.data_path = data_path
     self.config_suffix = '.config.pickle'
@@ -81,7 +81,7 @@ class DnnCrfBase(object):
       else:
         ext_size = self.batch_length - len(chs)
         chs_batch[i] = chs + ext_size * [self.dictionary[BATCH_PAD]]
-        lls_batch[i] = list(map(lambda t: self.tags_map[t], lls)) + ext_size * [self.tags_map[TAG_PAD]]
+        lls_batch[i] = list(map(lambda t: self.tags_map[t], lls)) + ext_size * [0]#[self.tags_map[TAG_PAD]]
 
     self.batch_start = new_start
     return self.indices2input(chs_batch), np.array(lls_batch, dtype=np.int32), np.array(len_batch, dtype=np.int32)
