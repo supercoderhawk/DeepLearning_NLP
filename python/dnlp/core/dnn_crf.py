@@ -45,7 +45,7 @@ class DnnCrf(DnnCrfBase):
     self.output = self.get_output_layer(self.hidden_layer)
 
     if mode == 'predict':
-      self.output = tf.squeeze(self.output, axis=2)
+      self.output = tf.squeeze(tf.transpose(self.output), axis=2)
     elif train == 'll':
       self.ll_loss, _ = tf.contrib.crf.crf_log_likelihood(self.output, self.real_indices, self.seq_length,
                                                           self.transition)
