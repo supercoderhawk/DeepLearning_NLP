@@ -39,6 +39,11 @@ python/dnlp
 │
 ├─models  # 保存训练后的模型
 │
+├─scripts # 运行脚本，包括初始化数据集和训练测试等等
+│     init_datasets.py  # 初始化训练数据
+│     cws_ner.py    # 进行分词和命名实体识别的训练和使用
+│     __init__.py
+│
 ├─tests  # 单元测试
 ├─utils  # 公用函数
       constant.py  # 一些常量
@@ -46,25 +51,22 @@ python/dnlp
   
 ```
 
-* `python\init_datasets.py`：初始化训练数据
-* `python\runner\cws_ner.py`：进行分词和命名实体识别的训练和使用
-
 ## 运行
 
 1. 初始化数据
 
 ```bash
-python python\init_datasets.py
+python python\scripts\init_datasets.py
 ```
 
 2. 训练
 ```bash
-python dnlp\runner\cws_new.py -t
+python python\scripts\cws_new.py -t
 ```
 
 3. 使用
 ```bash
-python dnlp\runner\cws_new.py -p
+python python\scripts\cws_new.py -p
 ```
 ## 参考论文
 
@@ -79,6 +81,7 @@ python dnlp\runner\cws_new.py -p
 
 ## ToDo-List
 
+- [ ] 完善文档
 - [ ] 增加更多算法的实现
 - [ ] 支持pip
 - [ ] 增加对Java、C++的支持
