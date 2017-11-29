@@ -30,6 +30,7 @@ class DnnCrf(DnnCrfBase):
       self.seq_length = tf.placeholder(tf.int32, [self.batch_size])
     else:
       self.input = tf.placeholder(tf.int32, [None, self.windows_size])
+
     # 查找表层
     self.embedding_layer = self.get_embedding_layer()
     # 隐藏层
@@ -46,6 +47,9 @@ class DnnCrf(DnnCrfBase):
 
     if mode == 'predict':
       self.output = tf.squeeze(tf.transpose(self.output), axis=2)
+      self.sess = tf.Session()
+      self.sess.run(tf.global_variables_initializer())
+      tf.train.Saver().restore(save_path=self.model_path, sess=self.sess)
     elif train == 'll':
       self.ll_loss, _ = tf.contrib.crf.crf_log_likelihood(self.output, self.real_indices, self.seq_length,
                                                           self.transition)
@@ -180,17 +184,15 @@ class DnnCrf(DnnCrfBase):
   def predict(self, sentence: str, return_labels=False):
     if self.mode != 'predict':
       raise Exception('mode is not allowed to predict')
-    with tf.Session() as sess:
-      tf.global_variables_initializer().run()
-      tf.train.Saver().restore(save_path=self.model_path, sess=sess)
-      input = self.indices2input(self.sentence2indices(sentence))
-      runner = [self.output, self.transition, self.transition_init]
-      output, trans, trans_init = sess.run(runner, feed_dict={self.input: input})
-      labels = self.viterbi(output, trans, trans_init)
-      if not return_labels:
-        return self.tags2words(sentence, labels)
-      else:
-        return self.tags2words(sentence, labels), labels
+
+    input = self.indices2input(self.sentence2indices(sentence))
+    runner = [self.output, self.transition, self.transition_init]
+    output, trans, trans_init = self.sess.run(runner, feed_dict={self.input: input})
+    labels = self.viterbi(output, trans, trans_init)
+    if not return_labels:
+      return self.tags2words(sentence, labels)
+    else:
+      return self.tags2words(sentence, labels), self.tag2sequences(labels)
 
   def get_embedding_layer(self) -> tf.Tensor:
     embeddings = self.__get_variable([self.dict_size, self.embed_size], 'embeddings')

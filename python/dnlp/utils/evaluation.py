@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 import pickle
-from dnlp.utils.constant import TAG_BEGIN, TAG_INSIDE, TAG_OTHER, TAG_END, TAG_SINGLE
+from dnlp.utils.constant import TAG_BEGIN, TAG_INSIDE, TAG_END, TAG_SINGLE
 
 
 def get_cws_statistics(correct_labels, predict_labels) -> (int, int, int):
@@ -33,7 +33,7 @@ def get_cws_statistics(correct_labels, predict_labels) -> (int, int, int):
       predicts[predict_start] = i
 
   for predict in predicts:
-    if corrects.get(predict) is not None and corrects[predict] == predicts[predict]:
+    if predict in corrects and corrects[predict] == predicts[predict]:
       true_positive_count += 1
 
   return true_positive_count, len(predicts), len(corrects)
@@ -72,22 +72,16 @@ def get_ner_statistics(correct_labels, predict_labels) -> (int, int, int):
 def evaluate_cws(model, data_path: str):
   with open(data_path, 'rb') as f:
     data = pickle.load(f)
-    dictionary = data['dictionary']
-    tags = data['tags']
-    reversed_map = dict(zip(tags.values(), tags.keys()))
     characters = data['characters']
     labels_true = data['labels']
     c_count = 0
     p_count = 0
-    r_count = -0
+    r_count = 0
     for sentence, label in enumerate(characters, labels_true):
       words, labels_predict = model.predict(sentence, return_labels=True)
-      seq = []
-      for l in zip(labels_predict):
-        seq.append(reversed_map[l])
-      c, p, r = get_cws_statistics(label, seq)
+      c, p, r = get_cws_statistics(label, labels_predict)
       c_count += c
       p_count += p
       r_count += r
-      print(c / p)
-      print(c / r)
+    print(c_count / p_count)
+    print(c_count / r_count)
