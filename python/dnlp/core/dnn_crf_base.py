@@ -2,11 +2,11 @@
 import numpy as np
 import pickle
 from dnlp.config.config import DnnCrfConfig
-from dnlp.utils.constant import BATCH_PAD, STRT_VAL, END_VAL, TAG_PAD, TAG_BEGIN, TAG_INSIDE, TAG_SINGLE
+from dnlp.utils.constant import BATCH_PAD, UNK, STRT_VAL, END_VAL, TAG_PAD, TAG_BEGIN, TAG_INSIDE, TAG_SINGLE
 
 
 class DnnCrfBase(object):
-  def __init__(self, config: DnnCrfConfig=None, data_path: str = '', mode: str = 'train', model_path: str = ''):
+  def __init__(self, config: DnnCrfConfig = None, data_path: str = '', mode: str = 'train', model_path: str = ''):
     # 加载数据
     self.data_path = data_path
     self.config_suffix = '.config.pickle'
@@ -18,7 +18,7 @@ class DnnCrfBase(object):
       self.dictionary, self.tags = self.__load_config()
     self.tags_count = len(self.tags) - 1  # 忽略TAG_PAD
     self.tags_map = self.__generate_tag_map()
-    self.reversed_tags_map = dict(zip(self.tags_map.values(),self.tags_map.keys()))
+    self.reversed_tags_map = dict(zip(self.tags_map.values(), self.tags_map.keys()))
     self.dict_size = len(self.dictionary)
     # 初始化超参数
     self.skip_left = config.skip_left
@@ -82,7 +82,7 @@ class DnnCrfBase(object):
       else:
         ext_size = self.batch_length - len(chs)
         chs_batch[i] = chs + ext_size * [self.dictionary[BATCH_PAD]]
-        lls_batch[i] = list(map(lambda t: self.tags_map[t], lls)) + ext_size * [0]#[self.tags_map[TAG_PAD]]
+        lls_batch[i] = list(map(lambda t: self.tags_map[t], lls)) + ext_size * [0]  # [self.tags_map[TAG_PAD]]
 
     self.batch_start = new_start
     return self.indices2input(chs_batch), np.array(lls_batch, dtype=np.int32), np.array(len_batch, dtype=np.int32)
@@ -111,7 +111,8 @@ class DnnCrfBase(object):
     return corr_path
 
   def sentence2indices(self, sentence: str) -> list:
-    return list(map(lambda ch: self.dictionary[ch], sentence))
+    expr = lambda ch: self.dictionary[ch] if ch in self.dictionary else self.dictionary[UNK]
+    return list(map(expr, sentence))
 
   def indices2input(self, indices: list) -> np.ndarray:
     res = []
@@ -173,7 +174,7 @@ class DnnCrfBase(object):
     else:
       return entities
 
-  def tag2sequences(self, tags_seq:np.ndarray):
+  def tag2sequences(self, tags_seq: np.ndarray):
     seq = []
 
     for tag in tags_seq:
