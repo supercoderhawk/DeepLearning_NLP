@@ -2,12 +2,13 @@
 import re
 import pickle
 from dnlp.data_process.processor import Preprocessor
-from dnlp.utils.constant import TAG_BEGIN, TAG_INSIDE, TAG_END, TAG_SINGLE,CWS_TAGS
+from dnlp.utils.constant import TAG_BEGIN, TAG_INSIDE, TAG_END, TAG_SINGLE,CWS_TAGS,UNK_VAL
 
 
 class ProcessCWS(Preprocessor):
   def __init__(self, *, files: tuple = (), dict_path: str = '', base_folder: str = 'dnlp/data', name: str = '',
-               delimiter: tuple = ('。')):
+               mode:str='train',delimiter: tuple = ('。')):
+    self.mode = mode
     self.SPLIT_CHAR = '  '
     if base_folder == '':
       raise Exception('base folder is empty')
@@ -53,17 +54,25 @@ class ProcessCWS(Preprocessor):
       lls = []
       for word in words:
         if len(word) == 1:
-          chs.append(self.dictionary[word])
+          if self.mode == 'train':
+            chs.append(self.dictionary[word] if self.dictionary.get(word) is not None else UNK_VAL)
+          else:
+            chs.append(word)
           lls.append(TAG_SINGLE)
         elif len(word) == 0:
           raise Exception('word length is zero')
         else:
-          chs.extend(map(lambda ch: self.dictionary[ch], word))
+          if self.mode == 'train':
+            chs.extend(map(lambda ch: self.dictionary[ch] if self.dictionary.get(ch) is not None else UNK_VAL, word))
+          else:
+            chs.append(word)
           lls.append(TAG_BEGIN)
           lls.extend([TAG_INSIDE] * (len(word) - 2))
           lls.append(TAG_END)
       characters.append(chs)
       labels.append(lls)
+    if self.mode == 'test':
+      characters = list(map(lambda words:''.join(words),characters))
     return characters, labels
 
   def save_data(self):
