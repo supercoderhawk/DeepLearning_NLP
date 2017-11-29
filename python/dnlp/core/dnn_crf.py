@@ -8,10 +8,10 @@ from dnlp.config.config import DnnCrfConfig
 
 class DnnCrf(DnnCrfBase):
   def __init__(self, *, config: DnnCrfConfig = None, data_path: str = '', dtype: type = tf.float32, mode: str = 'train',
-               train:str='ll',nn: str, model_path: str = ''):
+               train: str = 'll', nn: str, model_path: str = ''):
     if mode not in ['train', 'predict']:
       raise Exception('mode error')
-    if nn not in ['mlp', 'rnn', 'lstm', 'gru']:
+    if nn not in ['mlp', 'rnn', 'lstm', 'bilstm', 'gru']:
       raise Exception('name of neural network entered is not supported')
 
     DnnCrfBase.__init__(self, config, data_path, mode, model_path)
@@ -65,7 +65,6 @@ class DnnCrf(DnnCrfBase):
       self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
       self.train = self.optimizer.minimize(self.loss)
       self.train_with_init = self.optimizer.minimize(self.loss_with_init)
-
 
   def fit(self, epochs: int = 100, interval: int = 20):
     with tf.Session() as sess:
@@ -130,7 +129,7 @@ class DnnCrf(DnnCrfBase):
         feed_dict[self.trans_init_curr] = trans_init_neg_indices
         sess.run(self.train_with_init, feed_dict)
 
-  def fit_ll(self,epochs: int = 100, interval: int = 20):
+  def fit_ll(self, epochs: int = 100, interval: int = 20):
     with tf.Session() as sess:
       tf.global_variables_initializer().run()
       saver = tf.train.Saver(max_to_keep=epochs)
@@ -138,8 +137,8 @@ class DnnCrf(DnnCrfBase):
         print('epoch:', epoch)
         for _ in range(self.batch_count):
           characters, labels, lengths = self.get_batch()
-          #scores = sess.run(self.output, feed_dict={self.input: characters})
-          feed_dict = {self.input: characters, self.real_indices:labels, self.seq_length:lengths}
+          # scores = sess.run(self.output, feed_dict={self.input: characters})
+          feed_dict = {self.input: characters, self.real_indices: labels, self.seq_length: lengths}
           sess.run(self.train_ll, feed_dict=feed_dict)
           # self.fit_batch(characters, labels, lengths, sess)
         # if epoch % interval == 0:
@@ -178,7 +177,7 @@ class DnnCrf(DnnCrfBase):
 
     return trans_pos, trans_neg, trans_init_pos, trans_init_neg, update_init
 
-  def predict(self, sentence: str):
+  def predict(self, sentence: str, return_labels=False):
     if self.mode != 'predict':
       raise Exception('mode is not allowed to predict')
     with tf.Session() as sess:
@@ -188,7 +187,10 @@ class DnnCrf(DnnCrfBase):
       runner = [self.output, self.transition, self.transition_init]
       output, trans, trans_init = sess.run(runner, feed_dict={self.input: input})
       labels = self.viterbi(output, trans, trans_init)
-      return self.tags2words(sentence, labels)
+      if not return_labels:
+        return self.tags2words(sentence, labels)
+      else:
+        return self.tags2words(sentence, labels), labels
 
   def get_embedding_layer(self) -> tf.Tensor:
     embeddings = self.__get_variable([self.dict_size, self.embed_size], 'embeddings')
@@ -229,10 +231,10 @@ class DnnCrf(DnnCrfBase):
     return tf.layers.dropout(layer, self.dropout_rate)
 
   def get_output_layer(self, layer: tf.Tensor) -> tf.Tensor:
-    output_weight = self.__get_variable([self.hidden_units,self.tags_count], 'output_weight')
-    output_bias = self.__get_variable([1, 1, self.tags_count ], 'output_bias')
+    output_weight = self.__get_variable([self.hidden_units, self.tags_count], 'output_weight')
+    output_bias = self.__get_variable([1, 1, self.tags_count], 'output_bias')
     self.params += [output_weight, output_bias]
-    return tf.tensordot( layer,output_weight, [[2], [0]]) + output_bias
+    return tf.tensordot(layer, output_weight, [[2], [0]]) + output_bias
 
   def get_loss(self) -> (tf.Tensor, tf.Tensor):
     output_loss = tf.reduce_sum(tf.gather_nd(self.output, self.ll_curr) - tf.gather_nd(self.output, self.ll_corr))

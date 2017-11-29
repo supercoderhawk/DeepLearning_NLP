@@ -18,6 +18,7 @@ class DnnCrfBase(object):
       self.dictionary, self.tags = self.__load_config()
     self.tags_count = len(self.tags) - 1  # 忽略TAG_PAD
     self.tags_map = self.__generate_tag_map()
+    self.reversed_tags_map = dict(zip(self.tags_map.values(),self.tags_map.keys()))
     self.dict_size = len(self.dictionary)
     # 初始化超参数
     self.skip_left = config.skip_left
@@ -171,3 +172,11 @@ class DnnCrfBase(object):
       return entities, entity_starts
     else:
       return entities
+
+  def tag2sequences(self, tags_seq:np.ndarray):
+    seq = []
+
+    for tag in tags_seq:
+      seq.append(self.reversed_tags_map[tag])
+
+    return seq
