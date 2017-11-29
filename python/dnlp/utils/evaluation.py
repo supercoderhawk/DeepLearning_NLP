@@ -77,7 +77,7 @@ def evaluate_cws(model, data_path: str):
     c_count = 0
     p_count = 0
     r_count = 0
-    for sentence, label in enumerate(characters, labels_true):
+    for sentence, label in zip(characters, labels_true):
       words, labels_predict = model.predict(sentence, return_labels=True)
       c, p, r = get_cws_statistics(label, labels_predict)
       c_count += c
