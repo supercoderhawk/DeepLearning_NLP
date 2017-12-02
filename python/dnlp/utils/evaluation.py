@@ -1,5 +1,6 @@
 # -*- coding: UTF-8 -*-
 import pickle
+from sklearn.metrics import f1_score,precision_score,recall_score
 from dnlp.utils.constant import TAG_BEGIN, TAG_INSIDE, TAG_END, TAG_SINGLE
 
 
@@ -75,13 +76,26 @@ def evaluate_cws(model, data_path: str):
     characters = data['characters']
     labels_true = data['labels']
     c_count = 0
+
     p_count = 0
+
     r_count = 0
+
+    all_labels_true = []
+    all_labels_predict = []
     for sentence, label in zip(characters, labels_true):
-      words, labels_predict = model.predict(sentence, return_labels=True)
+      words, labels_predict = model.predict_ll(sentence, return_labels=True)
+      #print("============")
+      #print(words)
+      all_labels_predict.extend(labels_predict)
+      all_labels_true.extend(label)
       c, p, r = get_cws_statistics(label, labels_predict)
       c_count += c
       p_count += p
       r_count += r
     print(c_count / p_count)
     print(c_count / r_count)
+    average = 'macro'
+    print(precision_score(all_labels_true,all_labels_predict,average=average))
+    print(recall_score(all_labels_true,all_labels_predict,average=average))
+
