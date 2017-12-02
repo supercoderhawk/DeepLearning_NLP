@@ -6,6 +6,8 @@
 
 * `python >= 3.5`
 * `tensorflow >= 1.3.0`
+* `sklearn`
+* `scipy`
 
 ## 项目结构
 本项目的核心代码位于`python\dnlp`目录下
@@ -61,12 +63,12 @@ python python\scripts\init_datasets.py
 
 2. 训练
 ```bash
-python python\scripts\cws_new.py -t
+python python\scripts\cws_ner.py -t
 ```
 
 3. 使用
 ```bash
-python python\scripts\cws_new.py -p
+python python\scripts\cws_ner.py -p
 ```
 ## 参考论文
 
@@ -84,6 +86,8 @@ python python\scripts\cws_new.py -p
 - [ ] 完善文档
 - [ ] 增加更多算法的实现
 - [ ] 支持pip
+- [ ] 加入TensorBoard支持
+- [ ] 支持TensorFlow Estimator和Save Model
 - [ ] 增加对Java、C++的支持
 
 
