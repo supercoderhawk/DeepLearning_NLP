@@ -58,7 +58,8 @@ class DnnCrf(DnnCrfBase):
     else:
       self.loss, _ = tf.contrib.crf.crf_log_likelihood(self.output, self.real_indices, self.seq_length,
                                                        self.transition)
-      self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
+      # self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
+      self.optimizer = tf.train.AdadeltaOptimizer(self.learning_rate)
       self.new_optimizer = tf.train.AdamOptimizer()
       self.train = self.optimizer.minimize(-self.loss)
 
@@ -109,7 +110,9 @@ class DnnCrf(DnnCrfBase):
       return self.tags2words(sentence, labels)
 
   def get_embedding_layer(self) -> tf.Tensor:
-    embeddings = self.__get_variable([self.dict_size, self.embed_size], 'embeddings')
+    # embeddings = self.__get_variable([self.dict_size, self.embed_size], 'embeddings')
+    # embeddings = self.__get_variance_scaling_variable([self.dict_size, self.embed_size], 'embeddings')
+    embeddings = self.__get_uniform_variable([self.dict_size, self.embed_size], 'embeddings')
     self.params.append(embeddings)
     if self.mode == 'train':
       input_size = [self.batch_size, self.batch_length, self.concat_embed_size]
@@ -126,24 +129,24 @@ class DnnCrf(DnnCrfBase):
     return layer
 
   def get_rnn_layer(self, layer: tf.Tensor) -> tf.Tensor:
-    rnn = tf.nn.rnn_cell.RNNCell(self.hidden_units)
+    rnn = tf.nn.rnn_cell.BasicRNNCell(self.hidden_units)
     rnn_output, rnn_out_state = tf.nn.dynamic_rnn(rnn, layer, dtype=self.dtype)
     self.params += [v for v in tf.global_variables() if v.name.startswith('rnn')]
     return rnn_output
 
   def get_lstm_layer(self, layer: tf.Tensor) -> tf.Tensor:
-    lstm = tf.nn.rnn_cell.LSTMCell(self.hidden_units)
+    lstm = tf.nn.rnn_cell.BasicLSTMCell(self.hidden_units)
     lstm_output, lstm_out_state = tf.nn.dynamic_rnn(lstm, layer, dtype=self.dtype)
     self.params += [v for v in tf.global_variables() if v.name.startswith('rnn')]
     return lstm_output
 
   def get_bilstm_layer(self, layer: tf.Tensor) -> tf.Tensor:
-    lstm_fw = tf.nn.rnn_cell.LSTMCell(self.hidden_units//2)
-    lstm_bw = tf.nn.rnn_cell.LSTMCell(self.hidden_units//2)
+    lstm_fw = tf.nn.rnn_cell.BasicLSTMCell(self.hidden_units // 2)
+    lstm_bw = tf.nn.rnn_cell.BasicLSTMCell(self.hidden_units // 2)
     bilstm_output, bilstm_output_state = tf.nn.bidirectional_dynamic_rnn(lstm_fw, lstm_bw, layer, self.seq_length,
                                                                          dtype=self.dtype)
     self.params += [v for v in tf.global_variables() if v.name.startswith('rnn')]
-    return tf.concat([bilstm_output[0],bilstm_output[1]],-1)
+    return tf.concat([bilstm_output[0], bilstm_output[1]], -1)
 
   def get_gru_layer(self, layer: tf.Tensor) -> tf.Tensor:
     gru = tf.nn.rnn_cell.GRUCell(self.hidden_units)
@@ -162,3 +165,11 @@ class DnnCrf(DnnCrfBase):
 
   def __get_variable(self, size, name) -> tf.Variable:
     return tf.Variable(tf.truncated_normal(size, stddev=1.0 / math.sqrt(size[-1]), dtype=self.dtype), name=name)
+
+  def __get_variance_scaling_variable(self, shape, name):
+    initializer = tf.contrib.layers.variance_scaling_initializer(factor=1.0, uniform=True, dtype=self.dtype)
+    return tf.get_variable(name, shape=shape, initializer=initializer)
+
+  def __get_uniform_variable(self, shape, name):
+    return tf.Variable(tf.random_uniform(shape, -1 / math.sqrt(shape[-1]), math.sqrt(1 / shape[-1]), dtype=self.dtype),
+                       name=name)
