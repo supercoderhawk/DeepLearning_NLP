@@ -7,7 +7,8 @@ from dnlp.config.config import DnnCrfConfig
 
 
 class DnnCrf(DnnCrfBase):
-  def __init__(self, *, config: DnnCrfConfig = None, data_path: str = '', dtype: type = tf.float32, mode: str = 'train',
+  def __init__(self, *, config: DnnCrfConfig = None, task='cws', data_path: str = '', dtype: type = tf.float32,
+               mode: str = 'train',
                predict: str = 'll', nn: str, model_path: str = ''):
     if mode not in ['train', 'predict']:
       raise Exception('mode error')
@@ -17,6 +18,8 @@ class DnnCrf(DnnCrfBase):
     DnnCrfBase.__init__(self, config, data_path, mode, model_path)
     self.dtype = dtype
     self.mode = mode
+    self.task = task
+    self.nn = nn
 
     # 构建
     tf.reset_default_graph()
@@ -34,9 +37,11 @@ class DnnCrf(DnnCrfBase):
 
     # 查找表层
     self.embedding_layer = self.get_embedding_layer()
+    # 执行drpout
+    self.embedding_layer = self.get_dropout_layer(self.embedding_layer)
     # 隐藏层
     if nn == 'mlp':
-      self.hidden_layer = self.get_mlp_layer(tf.transpose(self.embedding_layer))
+      self.hidden_layer = self.get_mlp_layer(self.embedding_layer)
     elif nn == 'lstm':
       self.hidden_layer = self.get_lstm_layer(self.embedding_layer)
     elif nn == 'bilstm':
@@ -63,7 +68,7 @@ class DnnCrf(DnnCrfBase):
       self.new_optimizer = tf.train.AdamOptimizer()
       self.train = self.optimizer.minimize(-self.loss)
 
-  def fit(self, epochs: int = 100, interval: int = 20):
+  def fit(self, epochs: int = 50, interval: int = 10):
     with tf.Session() as sess:
       tf.global_variables_initializer().run()
       saver = tf.train.Saver(max_to_keep=epochs)
@@ -71,14 +76,12 @@ class DnnCrf(DnnCrfBase):
         print('epoch:', epoch)
         for _ in range(self.batch_count):
           characters, labels, lengths = self.get_batch()
-          # scores = sess.run(self.output, feed_dict={self.input: characters})
           feed_dict = {self.input: characters, self.real_indices: labels, self.seq_length: lengths}
           sess.run(self.train, feed_dict=feed_dict)
-          # self.fit_batch(characters, labels, lengths, sess)
-        # if epoch % interval == 0:
-        model_path = '../dnlp/models/cws{0}.ckpt'.format(epoch)
-        saver.save(sess, model_path)
-        self.save_config(model_path)
+        if epoch % interval == 0:
+          model_path = '../dnlp/models/{0}-{1}-{2}.ckpt'.format(self.task, self.nn, epoch)
+          saver.save(sess, model_path)
+          self.save_config(model_path)
 
   def predict(self, sentence: str, return_labels=False):
     if self.mode != 'predict':
@@ -88,10 +91,14 @@ class DnnCrf(DnnCrfBase):
     runner = [self.output, self.transition, self.transition_init]
     output, trans, trans_init = self.sess.run(runner, feed_dict={self.input: input})
     labels = self.viterbi(output, trans, trans_init)
-    if not return_labels:
-      return self.tags2words(sentence, labels)
+    if self.task == 'cws':
+      result = self.tags2words(sentence, labels)
     else:
-      return self.tags2words(sentence, labels), self.tag2sequences(labels)
+      result = self.tags2entities(sentence, labels)
+    if not return_labels:
+      return result
+    else:
+      return result, self.tag2sequences(labels)
 
   def predict_ll(self, sentence: str, return_labels=False):
     if self.mode != 'predict':
@@ -104,10 +111,14 @@ class DnnCrf(DnnCrfBase):
     # print(output)
     # print(trans)
     labels = np.squeeze(labels)
-    if return_labels:
-      return self.tags2words(sentence, labels), self.tag2sequences(labels)
+    if self.task == 'cws':
+      result = self.tags2words(sentence, labels)
     else:
-      return self.tags2words(sentence, labels)
+      result = self.tags2entities(sentence, labels)
+    if return_labels:
+      return result, self.tag2sequences(labels)
+    else:
+      return result
 
   def get_embedding_layer(self) -> tf.Tensor:
     # embeddings = self.__get_variable([self.dict_size, self.embed_size], 'embeddings')
@@ -125,8 +136,8 @@ class DnnCrf(DnnCrfBase):
     hidden_weight = self.__get_variable([self.hidden_units, self.concat_embed_size], 'hidden_weight')
     hidden_bias = self.__get_variable([self.hidden_units, 1, 1], 'hidden_bias')
     self.params += [hidden_weight, hidden_bias]
-    layer = tf.sigmoid(tf.tensordot(hidden_weight, layer, [[1], [0]]) + hidden_bias)
-    return layer
+    layer = tf.sigmoid(tf.tensordot(hidden_weight, tf.transpose(layer), [[1], [0]]) + hidden_bias)
+    return tf.transpose(layer)
 
   def get_rnn_layer(self, layer: tf.Tensor) -> tf.Tensor:
     rnn = tf.nn.rnn_cell.BasicRNNCell(self.hidden_units)
