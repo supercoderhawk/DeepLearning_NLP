@@ -2,7 +2,7 @@
 import numpy as np
 import pickle
 from dnlp.config.config import DnnCrfConfig
-from dnlp.utils.constant import BATCH_PAD, UNK, STRT_VAL, END_VAL, TAG_PAD, TAG_BEGIN, TAG_INSIDE, TAG_SINGLE
+from dnlp.utils.constant import BATCH_PAD, UNK, STRT_VAL, END_VAL, TAG_OTHER, TAG_BEGIN, TAG_INSIDE, TAG_SINGLE
 
 
 class DnnCrfBase(object):
@@ -158,9 +158,9 @@ class DnnCrfBase(object):
     entity = ''
 
     for tag_index, tag in enumerate(tags_seq):
-      if tag == 0:
+      if tag == self.tags_map[TAG_OTHER]:
         continue
-      elif tag == 1:
+      elif tag == self.tags_map[TAG_BEGIN]:
         if entity:
           entities.append(entity)
         entity = sentence[tag_index]

@@ -76,9 +76,7 @@ def evaluate_cws(model, data_path: str):
     characters = data['characters']
     labels_true = data['labels']
     c_count = 0
-
     p_count = 0
-
     r_count = 0
 
     all_labels_true = []
@@ -99,3 +97,29 @@ def evaluate_cws(model, data_path: str):
     print(precision_score(all_labels_true,all_labels_predict,average=average))
     print(recall_score(all_labels_true,all_labels_predict,average=average))
 
+def evaluate_ner(model, data_path:str):
+  with open(data_path, 'rb') as f:
+    data = pickle.load(f)
+    characters = data['characters']
+    labels_true = data['labels']
+    c_count = 0
+    p_count = 0
+    r_count = 0
+
+    all_labels_true = []
+    all_labels_predict = []
+    for sentence, label in zip(characters, labels_true):
+      if len(sentence) <= 3:
+        continue
+      entities, labels_predict = model.predict_ll(sentence, return_labels=True)
+      all_labels_predict.extend(labels_predict)
+      all_labels_true.extend(label)
+      c, p, r = get_ner_statistics(label, labels_predict)
+      c_count += c
+      p_count += p
+      r_count += r
+    print(c_count / p_count)
+    print(c_count / r_count)
+    # average = 'macro'
+    # print(precision_score(all_labels_true, all_labels_predict, average=average))
+    # print(recall_score(all_labels_true, all_labels_predict, average=average))

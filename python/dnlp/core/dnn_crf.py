@@ -2,14 +2,14 @@
 import tensorflow as tf
 import numpy as np
 import math
+import os
 from dnlp.core.dnn_crf_base import DnnCrfBase
 from dnlp.config.config import DnnCrfConfig
 
 
 class DnnCrf(DnnCrfBase):
   def __init__(self, *, config: DnnCrfConfig = None, task='cws', data_path: str = '', dtype: type = tf.float32,
-               mode: str = 'train',
-               predict: str = 'll', nn: str, model_path: str = ''):
+               mode: str = 'train', predict: str = 'll', nn: str, model_path: str = '', embedding_path: str = ''):
     if mode not in ['train', 'predict']:
       raise Exception('mode error')
     if nn not in ['mlp', 'rnn', 'lstm', 'bilstm', 'gru']:
@@ -20,6 +20,7 @@ class DnnCrf(DnnCrfBase):
     self.mode = mode
     self.task = task
     self.nn = nn
+    self.embedding_path = embedding_path
 
     # 构建
     tf.reset_default_graph()
@@ -66,6 +67,13 @@ class DnnCrf(DnnCrfBase):
       self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
       self.new_optimizer = tf.train.AdamOptimizer()
       self.train = self.optimizer.minimize(-self.loss)
+      current_dir = os.path.dirname(__file__)
+      dest_dir = os.path.realpath(os.path.join(current_dir,'..\\data\\logs'))
+      self.train_writer = tf.summary.FileWriter(dest_dir ,flush_secs=10)
+      tf.summary.scalar('loss',-self.loss)
+      # tf.summary.scalar('accuracy',)
+      self.merged = tf.summary.merge_all()
+
 
   def fit(self, epochs: int = 50, interval: int = 10):
     with tf.Session() as sess:
@@ -73,14 +81,22 @@ class DnnCrf(DnnCrfBase):
       saver = tf.train.Saver(max_to_keep=epochs)
       for epoch in range(1, epochs + 1):
         print('epoch:', epoch)
-        for _ in range(self.batch_count):
+        j = 0
+        for i in range(self.batch_count):
           characters, labels, lengths = self.get_batch()
           feed_dict = {self.input: characters, self.real_indices: labels, self.seq_length: lengths}
-          sess.run(self.train, feed_dict=feed_dict)
+          _,summary,loss = sess.run([self.train,self.merged,-self.loss], feed_dict=feed_dict)
+          # summary,loss = sess.run([],feed_dict=feed_dict)
+          self.train_writer.add_summary(summary,j)
+          j+=1
         if epoch % interval == 0:
-          model_path = '../dnlp/models/{0}-{1}-{2}.ckpt'.format(self.task, self.nn, epoch)
+          if not self.embedding_path:
+            model_path = '../dnlp/models/{0}-{1}-{2}.ckpt'.format(self.task, self.nn, epoch)
+          else:
+            model_path = '../dnlp/models/{0}-{1}-embedding-{2}.ckpt'.format(self.task, self.nn, epoch)
           saver.save(sess, model_path)
           self.save_config(model_path)
+      self.train_writer.close()
 
   def predict(self, sentence: str, return_labels=False):
     if self.mode != 'predict':
@@ -120,7 +136,10 @@ class DnnCrf(DnnCrfBase):
       return result
 
   def get_embedding_layer(self) -> tf.Tensor:
-    embeddings = self.__get_variable([self.dict_size, self.embed_size], 'embeddings')
+    if self.embedding_path:
+      embeddings = tf.Variable(np.load(self.embedding_path), trainable=False, name='embeddings')
+    else:
+      embeddings = self.__get_variable([self.dict_size, self.embed_size], 'embeddings')
     self.params.append(embeddings)
     if self.mode == 'train':
       input_size = [self.batch_size, self.batch_length, self.concat_embed_size]
