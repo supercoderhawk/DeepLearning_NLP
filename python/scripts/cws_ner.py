@@ -8,7 +8,7 @@ from dnlp.utils.evaluation import evaluate_cws, evaluate_ner
 
 
 def train_cws():
-  data_path = '../dnlp/data/cws/msr_training.pickle'
+  data_path = '../dnlp/data/cws/pku_training.pickle'
   config = DnnCrfConfig()
   dnncrf = DnnCrf(config=config, data_path=data_path, nn='bilstm')
   dnncrf.fit()
@@ -17,12 +17,12 @@ def train_cws():
 def test_cws():
   sentence = '小明来自南京师范大学'
   sentence = '中国人民决心继承邓小平同志的遗志，继续把建设有中国特色社会主义事业推向前进。'
-  model_path = '../dnlp/models/cws4.ckpt'
+  model_path = '../dnlp/models/cws32.ckpt'
   config = DnnCrfConfig()
   dnncrf = DnnCrf(config=config, mode='predict', model_path=model_path, nn='bilstm')
   res, labels = dnncrf.predict_ll(sentence, return_labels=True)
   print(res)
-  evaluate_cws(dnncrf, '../dnlp/data/cws/msr_test.pickle')
+  evaluate_cws(dnncrf, '../dnlp/data/cws/pku_test.pickle')
 
 
 def train_emr():
