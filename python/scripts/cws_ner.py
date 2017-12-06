@@ -25,13 +25,37 @@ def test_cws():
   evaluate_cws(dnncrf, '../dnlp/data/cws/pku_test.pickle')
 
 
-def train_emr():
+def train_emr_ngram():
   data_path = '../dnlp/data/emr/emr_training.pickle'
-  embedding_path = '../dnlp/data/emr/emr_skip_gram.npy'
+  config_bi_bigram = DnnCrfConfig(skip_left=1, skip_right=1)
+  config_left_bigram = DnnCrfConfig(skip_left=1, skip_right=0)
+  config_right_bigram = DnnCrfConfig(skip_left=0, skip_right=1)
+  config_unigram = DnnCrfConfig(skip_left=0, skip_right=0)
+  mlpcrf_bi_bigram = DnnCrf(config=config_bi_bigram, task='ner', data_path=data_path, nn='lstm', remark='bi_bigram')
+  mlpcrf_left_bigram = DnnCrf(config=config_left_bigram, task='ner', data_path=data_path, nn='lstm',
+                              remark='left_bigram')
+  mlpcrf_right_bigram = DnnCrf(config=config_right_bigram, task='ner', data_path=data_path, nn='lstm',
+                               remark='right_bigram')
+  mlpcrf_unigram = DnnCrf(config=config_unigram, task='ner', data_path=data_path, nn='lstm', remark='unigram')
+  mlpcrf_bi_bigram.fit()
+  mlpcrf_left_bigram.fit()
+  mlpcrf_right_bigram.fit()
+  mlpcrf_unigram.fit()
+
+
+def test_emr_ngram():
+  model_path = '../dnlp/models/ner-lstm-bi_bigram-10.ckpt'
+  config_bi_bigram = DnnCrfConfig(skip_left=1, skip_right=1)
+  mlpcrf_bi_bigram = DnnCrf(model_path=model_path, config=config_bi_bigram, mode='predict', task='ner', nn='lstm')
+  evaluate_ner(mlpcrf_bi_bigram, '../dnlp/data/emr/emr_test.pickle')
+
+
+def train_emr_random_init():
+  data_path = '../dnlp/data/emr/emr_training.pickle'
   config = DnnCrfConfig()
-  mlpcrf = DnnCrf(config=config, task='ner', data_path=data_path, nn='mlp', embedding_path=embedding_path)
+  mlpcrf = DnnCrf(config=config, task='ner', data_path=data_path, nn='mlp')
   mlpcrf.fit()
-  rnncrf = DnnCrf(config=config, task='ner', data_path=data_path, nn='rnn', embedding_path=embedding_path)
+  rnncrf = DnnCrf(config=config, task='ner', data_path=data_path, nn='rnn')
   rnncrf.fit()
   lstmcrf = DnnCrf(config=config, task='ner', data_path=data_path, nn='lstm')
   lstmcrf.fit()
@@ -41,7 +65,23 @@ def train_emr():
   grulstmcrf.fit()
 
 
-def test_emr():
+def train_emr_with_embeddings():
+  data_path = '../dnlp/data/emr/emr_training.pickle'
+  embedding_path = '../dnlp/data/emr/emr_skip_gram.npy'
+  config = DnnCrfConfig()
+  mlpcrf = DnnCrf(config=config, task='ner', data_path=data_path, nn='mlp', embedding_path=embedding_path)
+  mlpcrf.fit()
+  rnncrf = DnnCrf(config=config, task='ner', data_path=data_path, nn='rnn', embedding_path=embedding_path)
+  rnncrf.fit()
+  lstmcrf = DnnCrf(config=config, task='ner', data_path=data_path, nn='lstm', embedding_path=embedding_path)
+  lstmcrf.fit()
+  bilstmcrf = DnnCrf(config=config, task='ner', data_path=data_path, nn='bilstm', embedding_path=embedding_path)
+  bilstmcrf.fit()
+  grulstmcrf = DnnCrf(config=config, task='ner', data_path=data_path, nn='gru', embedding_path=embedding_path)
+  grulstmcrf.fit()
+
+
+def test_emr_with_embeddings():
   sentence = '多饮多尿多食'
   config = DnnCrfConfig()
   # dnncrf = DnnCrf(config=config, task='ner', mode='predict', model_path=model_path, nn='lstm')
@@ -77,6 +117,8 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('-t', '--t', dest='train', action='store_true', default=False)
   parser.add_argument('-p', '--p', dest='predict', action='store_true', default=False)
+  parser.add_argument('-c','--c',dest='cws',action='store_true',default=False)
+  parser.add_argument('-e','--e',dest='emr',action='store_true',default=False)
   args = parser.parse_args(sys.argv[1:])
   train = args.train
   predict = args.predict
@@ -88,7 +130,14 @@ if __name__ == '__main__':
     exit(1)
 
   if train:
-    train_emr()
-    # train_emr_skipgram()
+    if args.cws:
+      train_cws()
+    elif args.emr:
+      train_emr_ngram()
+      # train_emr_random_init()
+      # train_emr_skipgram()
   else:
-    test_emr()
+    if args.cws:
+      test_cws()
+    elif args.emr:
+      test_emr_ngram()
