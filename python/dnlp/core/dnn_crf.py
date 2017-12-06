@@ -9,7 +9,8 @@ from dnlp.config.config import DnnCrfConfig
 
 class DnnCrf(DnnCrfBase):
   def __init__(self, *, config: DnnCrfConfig = None, task='cws', data_path: str = '', dtype: type = tf.float32,
-               mode: str = 'train', predict: str = 'll', nn: str, model_path: str = '', embedding_path: str = ''):
+               mode: str = 'train', dropout_position: str = 'input', predict: str = 'll', nn: str, model_path: str = '',
+               embedding_path: str = '', remark: str = ''):
     if mode not in ['train', 'predict']:
       raise Exception('mode error')
     if nn not in ['mlp', 'rnn', 'lstm', 'bilstm', 'gru']:
@@ -20,63 +21,75 @@ class DnnCrf(DnnCrfBase):
     self.mode = mode
     self.task = task
     self.nn = nn
+    self.remark = remark
     self.embedding_path = embedding_path
+    self.graph = tf.Graph()
+    with self.graph.as_default():
+      # 构建
+      # tf.reset_default_graph()
+      self.transition = self.__get_variable([self.tags_count, self.tags_count], 'transition')
+      self.transition_init = self.__get_variable([self.tags_count], 'transition_init')
+      self.params = [self.transition, self.transition_init]
+      # 输入层
 
-    # 构建
-    tf.reset_default_graph()
-    self.transition = self.__get_variable([self.tags_count, self.tags_count], 'transition')
-    self.transition_init = self.__get_variable([self.tags_count], 'transition_init')
-    self.params = [self.transition, self.transition_init]
-    # 输入层
-    if mode == 'train':
-      self.input = tf.placeholder(tf.int32, [self.batch_size, self.batch_length, self.windows_size])
-      self.real_indices = tf.placeholder(tf.int32, [self.batch_size, self.batch_length])
-    else:
-      self.input = tf.placeholder(tf.int32, [None, self.windows_size])
+      if mode == 'train':
+        self.input = tf.placeholder(tf.int32, [self.batch_size, self.batch_length, self.windows_size])
+        self.real_indices = tf.placeholder(tf.int32, [self.batch_size, self.batch_length])
+      else:
+        self.input = tf.placeholder(tf.int32, [None, self.windows_size])
 
-    self.seq_length = tf.placeholder(tf.int32, [None])
+      self.seq_length = tf.placeholder(tf.int32, [None])
 
-    # 查找表层
-    self.embedding_layer = self.get_embedding_layer()
-    # 执行drpout
-    self.embedding_layer = self.get_dropout_layer(self.embedding_layer)
-    # 隐藏层
-    if nn == 'mlp':
-      self.hidden_layer = self.get_mlp_layer(self.embedding_layer)
-    elif nn == 'lstm':
-      self.hidden_layer = self.get_lstm_layer(self.embedding_layer)
-    elif nn == 'bilstm':
-      self.hidden_layer = self.get_bilstm_layer(self.embedding_layer)
-    elif nn == 'gru':
-      self.hidden_layer = self.get_gru_layer(self.embedding_layer)
-    else:
-      self.hidden_layer = self.get_rnn_layer(self.embedding_layer)
-    # 输出层
-    self.output = self.get_output_layer(self.hidden_layer)
+      # 查找表层
+      self.embedding_layer = self.get_embedding_layer()
+      # 执行drpout
+      if dropout_position == 'input':
+        self.embedding_layer = self.get_dropout_layer(self.embedding_layer)
+      # 隐藏层
+      if nn == 'mlp':
+        self.hidden_layer = self.get_mlp_layer(self.embedding_layer)
+      elif nn == 'lstm':
+        self.hidden_layer = self.get_lstm_layer(self.embedding_layer)
+      elif nn == 'bilstm':
+        self.hidden_layer = self.get_bilstm_layer(self.embedding_layer)
+      elif nn == 'gru':
+        self.hidden_layer = self.get_gru_layer(self.embedding_layer)
+      else:
+        self.hidden_layer = self.get_rnn_layer(self.embedding_layer)
+      if dropout_position == 'hidden':
+        self.hidden_layer = self.get_dropout_layer(self.hidden_layer)
+      # 输出层
+      self.output = self.get_output_layer(self.hidden_layer)
 
-    if mode == 'predict':
-      if predict != 'll':
-        self.output = tf.squeeze(tf.transpose(self.output), axis=2)
-      self.seq, self.best_score = tf.contrib.crf.crf_decode(self.output, self.transition, self.seq_length)
-      self.sess = tf.Session()
-      self.sess.run(tf.global_variables_initializer())
-      tf.train.Saver().restore(save_path=self.model_path, sess=self.sess)
-    else:
-      self.loss, _ = tf.contrib.crf.crf_log_likelihood(self.output, self.real_indices, self.seq_length,
-                                                       self.transition)
-      self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
-      self.new_optimizer = tf.train.AdamOptimizer()
-      self.train = self.optimizer.minimize(-self.loss)
-      current_dir = os.path.dirname(__file__)
-      dest_dir = os.path.realpath(os.path.join(current_dir,'..\\data\\logs'))
-      self.train_writer = tf.summary.FileWriter(dest_dir ,flush_secs=10)
-      tf.summary.scalar('loss',-self.loss)
-      # tf.summary.scalar('accuracy',)
-      self.merged = tf.summary.merge_all()
-
+      if mode == 'predict':
+        if predict != 'll':
+          self.output = tf.squeeze(tf.transpose(self.output), axis=2)
+        self.seq, self.best_score = tf.contrib.crf.crf_decode(self.output, self.transition, self.seq_length)
+        self.sess = tf.Session()
+        self.sess.run(tf.global_variables_initializer())
+        tf.train.Saver().restore(save_path=self.model_path, sess=self.sess)
+      else:
+        self.crf_loss, _ = tf.contrib.crf.crf_log_likelihood(self.output, self.real_indices, self.seq_length,
+                                                         self.transition)
+        #self.loss = -self.loss
+        self.regularization = tf.contrib.layers.apply_regularization(tf.contrib.layers.l2_regularizer(self.lam),
+                                                                       self.params )
+        self.loss = -self.crf_loss/self.batch_size + self.regularization
+        self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
+        self.new_optimizer = tf.train.AdamOptimizer()
+        gvs = self.optimizer.compute_gradients(self.loss)
+        cliped_grad = [(tf.clip_by_norm(grad, 5) if grad is not None else grad, var) for grad, var in gvs]
+        self.train = self.optimizer.apply_gradients(cliped_grad)  # self.optimizer.minimize(self.loss)
+        # self.train = self.optimizer.minimize(self.loss)
+        current_dir = os.path.dirname(__file__)
+        dest_dir = os.path.realpath(os.path.join(current_dir, '..\\data\\logs'))
+        self.train_writer = tf.summary.FileWriter(dest_dir, flush_secs=10)
+        self.mean_loss = tf.reduce_mean(self.loss)
+        tf.summary.scalar('loss', self.mean_loss)
+        self.merged = tf.summary.merge_all()
 
   def fit(self, epochs: int = 50, interval: int = 10):
-    with tf.Session() as sess:
+    with tf.Session(graph=self.graph) as sess:
       tf.global_variables_initializer().run()
       saver = tf.train.Saver(max_to_keep=epochs)
       for epoch in range(1, epochs + 1):
@@ -85,13 +98,15 @@ class DnnCrf(DnnCrfBase):
         for i in range(self.batch_count):
           characters, labels, lengths = self.get_batch()
           feed_dict = {self.input: characters, self.real_indices: labels, self.seq_length: lengths}
-          _,summary,loss = sess.run([self.train,self.merged,-self.loss], feed_dict=feed_dict)
-          # summary,loss = sess.run([],feed_dict=feed_dict)
-          self.train_writer.add_summary(summary,j)
-          j+=1
+          _, summary, loss = sess.run([self.train, self.merged, self.mean_loss], feed_dict=feed_dict)
+          self.train_writer.add_summary(summary, j)
+          j += 1
         if epoch % interval == 0:
           if not self.embedding_path:
-            model_path = '../dnlp/models/{0}-{1}-{2}.ckpt'.format(self.task, self.nn, epoch)
+            if self.remark:
+              model_path = '../dnlp/models/{0}-{1}-{2}-{3}.ckpt'.format(self.task, self.nn, self.remark, epoch)
+            else:
+              model_path = '../dnlp/models/{0}-{1}-{2}.ckpt'.format(self.task, self.nn, epoch)
           else:
             model_path = '../dnlp/models/{0}-{1}-embedding-{2}.ckpt'.format(self.task, self.nn, epoch)
           saver.save(sess, model_path)
