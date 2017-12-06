@@ -10,6 +10,9 @@ def init():
   model_path = '../dnlp/models/'
   if not os.path.exists(model_path):
     os.makedirs(model_path)
+  log_path = '../dnlp/data/logs/'
+  if not os.path.exists(log_path):
+    os.makedirs(log_path)
 
 
 def copy():
