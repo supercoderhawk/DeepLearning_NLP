@@ -6,8 +6,8 @@ import tensorflow as tf
 
 
 class SkipGram(object):
-  def __init__(self, src_filename: str, dest_filename: str, batch_size: int = 64, embed_size: int = 100,
-               num_sampled: int = 32, steps: int = 50000):
+  def __init__(self, src_filename: str, dest_filename: str, batch_size: int = 128, embed_size: int = 100,
+               num_sampled: int = 64, steps: int = 50000):
     with open(src_filename, 'rb') as f:
       data = pickle.load(f)
       self.input = data['input']
