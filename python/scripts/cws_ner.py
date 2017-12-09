@@ -3,6 +3,7 @@ import sys
 import argparse
 from dnlp.config import DnnCrfConfig
 from dnlp.core.dnn_crf import DnnCrf
+from dnlp.core.dnn_crf_emr import DnnCrfEmr
 from dnlp.core.skip_gram import SkipGram
 from dnlp.utils.evaluation import evaluate_cws, evaluate_ner
 
@@ -65,6 +66,17 @@ def test_emr_ngram():
                             nn='lstm')
   evaluate_ner(mlpcrf_unigram, '../dnlp/data/emr/emr_test.pickle')
 
+def train_emr_old_method():
+  data_path = '../dnlp/data/emr/emr_training.pickle'
+  config = DnnCrfConfig()
+  mlpcrf = DnnCrfEmr(config=config, task='ner', data_path=data_path, nn='mlp')
+  mlpcrf.fit(interval=1)
+def test_emr_old_method():
+  model_path = '../dnlp/models/emr_old/mlp-1.ckpt'
+  config = DnnCrfConfig()
+  mlpcrf = DnnCrfEmr(config=config, task='ner',mode='predict',model_path=model_path, nn='mlp')
+
+  evaluate_ner(mlpcrf, '../dnlp/data/emr/emr_test.pickle')
 
 def train_emr_random_init():
   data_path = '../dnlp/data/emr/emr_training.pickle'
@@ -163,7 +175,8 @@ if __name__ == '__main__':
     if args.cws:
       train_cws()
     elif args.emr:
-      train_emr_with_embeddings()
+      train_emr_old_method()
+      # train_emr_with_embeddings()
       # train_emr_ngram()
       # train_emr_random_init()
       # train_emr_skipgram()
@@ -171,7 +184,8 @@ if __name__ == '__main__':
     if args.cws:
       test_cws()
     elif args.emr:
+      test_emr_old_method()
       # test_emr_ngram()
-      test_emr_random_init()
-      print('embedding')
-      test_emr_with_embeddings()
+      # test_emr_random_init()
+      # print('embedding')
+      # test_emr_with_embeddings()
