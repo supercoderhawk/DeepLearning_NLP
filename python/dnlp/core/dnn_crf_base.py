@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 import numpy as np
 import pickle
-from dnlp.config.config import DnnCrfConfig
+from dnlp.config import DnnCrfConfig
 from dnlp.utils.constant import BATCH_PAD, UNK, STRT_VAL, END_VAL, TAG_OTHER, TAG_BEGIN, TAG_INSIDE, TAG_SINGLE
 
 

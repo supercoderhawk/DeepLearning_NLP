@@ -4,7 +4,7 @@ import numpy as np
 import math
 import os
 from dnlp.core.dnn_crf_base import DnnCrfBase
-from dnlp.config.config import DnnCrfConfig
+from dnlp.config import DnnCrfConfig
 
 
 class DnnCrf(DnnCrfBase):
@@ -152,7 +152,7 @@ class DnnCrf(DnnCrfBase):
 
   def get_embedding_layer(self) -> tf.Tensor:
     if self.embedding_path:
-      embeddings = tf.Variable(np.load(self.embedding_path), trainable=False, name='embeddings')
+      embeddings = tf.Variable(np.load(self.embedding_path), trainable=True, name='embeddings')
     else:
       embeddings = self.__get_variable([self.dict_size, self.embed_size], 'embeddings')
     self.params.append(embeddings)
