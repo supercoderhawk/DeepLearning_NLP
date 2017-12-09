@@ -3,9 +3,9 @@ import sys
 import re
 import argparse
 from dnlp.utils.constant import BATCH_PAD, BATCH_PAD_VAL, UNK, UNK_VAL, STRT, STRT_VAL, END, END_VAL
+RE_SAPCE = re.compile('[ ]+')
 
-
-def generate_chinese_dictionary(files):
+def generate_chinese_character_dictionary(files):
   rx = re.compile('\s')
   characters = set()
   dictionary = {BATCH_PAD: BATCH_PAD_VAL, UNK: UNK_VAL, STRT: STRT_VAL, END: END_VAL}
@@ -16,9 +16,17 @@ def generate_chinese_dictionary(files):
   dictionary.update(new_dict)
   return dictionary
 
+def generate_word_dictionary(files):
+  dictionary = {BATCH_PAD: BATCH_PAD_VAL, UNK: UNK_VAL, STRT: STRT_VAL, END: END_VAL}
+  words = set()
+  for file in files:
+    with open(file, encoding='utf-8') as f:
+      lines = RE_SAPCE.sub(' ',f.read()).splitlines()
+      words.update(*[l.split(' ') for l in lines])
+  new_dict = dict(zip(words, range(len(dictionary), len(dictionary) + len(words))))
+  dictionary.update(new_dict)
+  return dictionary
 
-def generate_english_dictionary(files):
-  pass
 
 
 def generate_dictionary_from_conll(files):
@@ -44,13 +52,15 @@ def output_dictionary(dictionary, filename):
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
-  parser.add_argument('--c', dest='c', action='store_true', default=False)
-  parser.add_argument('--r', dest='r', action='store_true', default=False)
+  parser.add_argument('--c', dest='conll', action='store_true', default=False)
+  parser.add_argument('--r', dest='raw', action='store_true', default=False)
+  parser.add_argument('--w',dest='word',action='store_true',default=False)
   parser.add_argument('files', nargs='+')
+  parser.add_argument('--folder', dest='folder',)
   parser.add_argument('--o', dest='o', nargs='?')
   args = parser.parse_args(sys.argv[1:])
-  conll = args.c
-  raw = args.r
+  conll = args.conll
+  raw = args.raw
   output = args.o
   files = args.files
   if not output:
@@ -64,7 +74,9 @@ if __name__ == '__main__':
   if not conll and not raw:
     print('don\'t enter dictionary mode')
   if raw:
-    dictionary = generate_chinese_dictionary(files)
+    dictionary = generate_chinese_character_dictionary(files)
+  elif args.word:
+    dictionary = generate_word_dictionary(files)
   else:
     dictionary = generate_dictionary_from_conll(files)
 
