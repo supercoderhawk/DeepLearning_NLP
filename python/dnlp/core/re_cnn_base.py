@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
 from dnlp.config import RECNNConfig
 class RECNNBase(object):
-  def __init__(self, config:RECNNConfig):
+  def __init__(self, config:RECNNConfig,dict_path:str):
     self.window_size = config.window_size
     self.filter_size = config.filter_size
     self.learning_rate = config.learning_rate
@@ -11,6 +11,8 @@ class RECNNBase(object):
     self.position_embed_size = config.position_embed_size
     self.batch_length = config.batch_length
     self.batch_size = config.batch_size
+    self.dictionary = self.read_dictionary(dict_path)
+    self.words_size = len(self.dictionary)
 
   def read_dictionary(self,dict_path):
     with open(dict_path,encoding='utf-8') as f:

@@ -25,6 +25,11 @@ def test_cws():
   print(res)
   evaluate_cws(dnncrf, '../dnlp/data/cws/pku_test.pickle')
 
+def train_emr_cws():
+  data_path = '../dnlp/data/cws/pku_training.pickle'
+  config = DnnCrfConfig()
+  dnncrf = DnnCrf(config=config, data_path=data_path, nn='lstm')
+  dnncrf.fit()
 
 def train_emr_ngram():
   data_path = '../dnlp/data/emr/emr_training.pickle'
@@ -162,7 +167,7 @@ if __name__ == '__main__':
   parser.add_argument('-c', '--c', dest='cws', action='store_true', default=False)
   parser.add_argument('-e', '--e', dest='emr', action='store_true', default=False)
   args = parser.parse_args(sys.argv[1:])
-  train = args.train
+  train = args.fit
   predict = args.predict
   if train and predict:
     print('can\'t train and predict at same time')
