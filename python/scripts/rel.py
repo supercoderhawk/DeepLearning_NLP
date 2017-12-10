@@ -9,5 +9,7 @@ def train_re_cnn():
   recnn = RECNN(config=config,data_path=data_path,dict_path=dict_path)
   recnn.fit()
 
+def test_re_cnn():
+  pass
 if __name__ == '__main__':
   train_re_cnn()

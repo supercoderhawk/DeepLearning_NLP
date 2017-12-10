@@ -9,11 +9,12 @@ from dnlp.utils.constant import BATCH_PAD, BATCH_PAD_VAL
 
 class RECNN(RECNNBase):
   def __init__(self, config: RECNNConfig, dtype: type = tf.float32, dict_path: str = '', mode: str = 'train',
-               data_path: str = '', relation_count: int = 2):
+               data_path: str = '', relation_count: int = 2,model_path:str=''):
     RECNNBase.__init__(self, config, dict_path)
     self.dtype = dtype
     self.mode = mode
     self.data_path = data_path
+    self.model_path = model_path
     self.relation_count = relation_count
 
     self.concat_embed_size = self.word_embed_size + 2 * self.position_embed_size
