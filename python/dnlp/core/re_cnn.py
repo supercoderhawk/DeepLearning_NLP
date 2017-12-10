@@ -10,6 +10,7 @@ from dnlp.utils.constant import BATCH_PAD, BATCH_PAD_VAL
 class RECNN(RECNNBase):
   def __init__(self, config: RECNNConfig, dtype: type = tf.float32, dict_path: str = '', mode: str = 'train',
                data_path: str = '', relation_count: int = 2,model_path:str=''):
+    tf.reset_default_graph()
     RECNNBase.__init__(self, config, dict_path)
     self.dtype = dtype
     self.mode = mode
@@ -40,13 +41,16 @@ class RECNN(RECNNBase):
                                                  [None, self.batch_length, self.position_embed_size])
     self.emebd_concat = tf.expand_dims(
       tf.concat([self.character_embed_holder, self.primary_embed_holder, self.secondary_embed_holder], 2), 3)
+    self.words, self.primary, self.secondary, self.labels = self.load_data()
     if self.mode == 'train':
       self.hidden_layer = tf.layers.dropout(self.get_hidden(), self.dropout_rate)
-      self.words, self.primary, self.secondary, self.labels = self.load_data()
       self.start = 0
       self.data_count = len(self.words)
+      self.saver = tf.train.Saver(max_to_keep=100)
     else:
       self.hidden_layer = tf.expand_dims(tf.layers.dropout(self.get_hidden(), self.dropout_rate), 0)
+      self.sess = tf.Session()
+      self.saver = tf.train.Saver().restore(self.sess, self.model_path)
     self.output_no_softmax = tf.matmul(self.hidden_layer, self.full_connected_weight) + self.full_connected_bias
     self.output = tf.nn.softmax(tf.matmul(self.hidden_layer, self.full_connected_weight) + self.full_connected_bias)
     self.params = [self.position_embedding, self.word_embedding, self.full_connected_weight,
@@ -60,7 +64,7 @@ class RECNN(RECNNBase):
     # self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
     self.train_model = self.optimizer.minimize(self.loss)
     self.train_cross_entropy_model = self.optimizer.minimize(self.cross_entropy)
-    self.saver = tf.train.Saver(max_to_keep=100)
+
 
   def get_conv_kernel(self):
     conv_kernel = []
@@ -114,6 +118,19 @@ class RECNN(RECNNBase):
         if i % interval == 0:
           model_name = '../dnlp/models/re/{0}-{1}.ckpt'.format(i, '_'.join(map(str, self.window_size)))
           self.saver.save(sess, model_name)
+  def predict(self,words,primary,secondary):
+    character_embeds, primary_embeds = self.sess.run([self.character_lookup, self.position_lookup],
+                                                feed_dict={self.input_characters: words,
+                                                           self.input_position: primary})
+    secondary_embeds = self.sess.run(self.position_lookup, feed_dict={self.input_position: secondary})
+    input = self.sess.run(self.emebd_concat, feed_dict={self.character_embed_holder: character_embeds,
+                                                   self.primary_embed_holder: primary_embeds,
+                                                   self.secondary_embed_holder: secondary_embeds})
+    output = self.sess.run(self.output, feed_dict={self.input: input})
+    return np.argmax(output, 1)
+
+  def evaluate(self):
+    res = self.predict(self.words,self.primary,self.secondary)
 
   def load_batch(self):
     if self.start + self.batch_size > self.data_count:
