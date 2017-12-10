@@ -3,6 +3,7 @@ import os
 from shutil import copyfile
 from dnlp.data_process.process_cws import ProcessCWS
 from dnlp.data_process.process_ner import ProcessNER
+from dnlp.data_process.process_emr import ProcessEMR
 from dnlp.data_process.process_character_embedding_pretrain import CharacterEmbeddingPertrainProcess
 
 
@@ -13,6 +14,9 @@ def init():
   log_path = '../dnlp/data/logs/'
   if not os.path.exists(log_path):
     os.makedirs(log_path)
+  re_model_path = model_path + 're/'
+  if not os.path.exists(re_model_path):
+    os.makedirs(re_model_path)
 
 
 def copy():
@@ -44,10 +48,19 @@ def build_emr_datasets():
   dict_path = base_folder + 'emr_dict.utf8'
   ProcessNER(files=('emr_training.conll',), dict_path=dict_path, base_folder=base_folder, name='emr_training')
   ProcessNER(files=('emr_test.conll',), dict_path=dict_path, base_folder=base_folder, name='emr_test', mode='test')
-  CharacterEmbeddingPertrainProcess(base_folder,('emr.txt',),dict_path,1)
+  CharacterEmbeddingPertrainProcess(base_folder, ('emr.txt',), dict_path, 1)
+
+
+def build_emr_re():
+  base_folder = '../dnlp/data/emr/'
+  dict_path = base_folder + 'emr_word_dict.utf8'
+  ProcessEMR(base_folder=base_folder, dict_path=dict_path)
+  ProcessEMR(base_folder=base_folder, dict_path=dict_path, mode='test')
+
 
 if __name__ == '__main__':
   # init()
   # copy()
   # build_cws_datasets()
-  build_emr_datasets()
+  # build_emr_datasets()
+  build_emr_re()
