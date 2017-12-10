@@ -11,6 +11,9 @@ setup(
   author_email='supercoderhawk@gmail.com',
   description='deep learning-based natural language processing lib',
   install_requires=[
-    "tensorflow >= 1.3.0"
-  ]
+  ],
+  extra_require = {
+    'tf':'tensorflow >= 1.3.0',
+    'tf-gpu':'tensorflow_gpu >= 1.3.0'
+  }
 )

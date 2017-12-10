@@ -69,12 +69,13 @@ def test_emr_ngram():
 def train_emr_old_method():
   data_path = '../dnlp/data/emr/emr_training.pickle'
   config = DnnCrfConfig()
-  mlpcrf = DnnCrfEmr(config=config, task='ner', data_path=data_path, nn='mlp')
+  mlpcrf = DnnCrfEmr(config=config, task='ner', data_path=data_path, nn='lstm')
   mlpcrf.fit(interval=1)
+
 def test_emr_old_method():
-  model_path = '../dnlp/models/emr_old/mlp-1.ckpt'
+  model_path = '../dnlp/models/emr_old/lstm-2.ckpt'
   config = DnnCrfConfig()
-  mlpcrf = DnnCrfEmr(config=config, task='ner',mode='predict',model_path=model_path, nn='mlp')
+  mlpcrf = DnnCrfEmr(config=config, task='ner',mode='predict',model_path=model_path, nn='lstm')
 
   evaluate_ner(mlpcrf, '../dnlp/data/emr/emr_test.pickle')
 

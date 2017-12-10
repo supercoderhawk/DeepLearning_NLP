@@ -29,7 +29,7 @@ class DnnCrfEmr(DnnCrfBase):
     if mode == 'train':
       self.input = tf.placeholder(tf.int32, [self.batch_size, self.batch_length, self.windows_size])
       self.real_indices = tf.placeholder(tf.int32, [self.batch_size, self.batch_length])
-      self.seq_length = tf.placeholder(tf.int32, [self.batch_size])
+      self.seq_length = tf.placeholder(tf.int32, [None])
     else:
       self.input = tf.placeholder(tf.int32, [None, self.windows_size])
 
@@ -48,7 +48,7 @@ class DnnCrfEmr(DnnCrfBase):
     self.output = self.get_output_layer(self.hidden_layer)
 
     if mode == 'predict':
-      self.output = tf.squeeze(self.output, axis=2)
+      self.output = tf.squeeze(self.output, axis=1)
       self.sess = tf.Session()
       self.sess.run(tf.global_variables_initializer())
       tf.train.Saver().restore(save_path=self.model_path, sess=self.sess)
@@ -81,10 +81,10 @@ class DnnCrfEmr(DnnCrfBase):
         for _ in range(self.batch_count):
           characters, labels, lengths = self.get_batch()
           self.fit_batch(characters, labels, lengths, sess)
-        # if epoch % interval == 0:
-        model_path = '../dnlp/models/emr_old/{0}-{1}.ckpt'.format(self.nn, epoch)
-        saver.save(sess, model_path)
-        self.save_config(model_path)
+        if epoch % interval == 0:
+          model_path = '../dnlp/models/emr_old/{0}-{1}.ckpt'.format(self.nn, epoch)
+          saver.save(sess, model_path)
+          self.save_config(model_path)
 
   def fit_batch(self, characters, labels, lengths, sess):
     scores = sess.run(self.output, feed_dict={self.input: characters})
@@ -224,7 +224,7 @@ class DnnCrfEmr(DnnCrfBase):
     return tf.transpose(rnn_output)
 
   def get_lstm_layer(self, layer: tf.Tensor) -> tf.Tensor:
-    lstm = tf.nn.rnn_cell.LSTMCell(self.hidden_units)
+    lstm = tf.nn.rnn_cell.BasicLSTMCell(self.hidden_units)
     lstm_output, lstm_out_state = tf.nn.dynamic_rnn(lstm, layer, dtype=self.dtype)
     self.params += [v for v in tf.global_variables() if v.name.startswith('rnn')]
     return tf.transpose(lstm_output)
