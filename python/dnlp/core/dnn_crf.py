@@ -88,7 +88,7 @@ class DnnCrf(DnnCrfBase):
         tf.summary.scalar('loss', self.mean_loss)
         self.merged = tf.summary.merge_all()
 
-  def fit(self, epochs: int = 50, interval: int = 10):
+  def fit(self, epochs: int = 40, interval: int = 10):
     with tf.Session(graph=self.graph) as sess:
       tf.global_variables_initializer().run()
       saver = tf.train.Saver(max_to_keep=epochs)
@@ -104,11 +104,11 @@ class DnnCrf(DnnCrfBase):
         if epoch % interval == 0:
           if not self.embedding_path:
             if self.remark:
-              model_path = '../dnlp/models/{0}-{1}-{2}-{3}.ckpt'.format(self.task, self.nn, self.remark, epoch)
+              model_path = '../dnlp/models/emr/{0}-{1}-{2}-{3}.ckpt'.format(self.task, self.nn, self.remark, epoch)
             else:
-              model_path = '../dnlp/models/{0}-{1}-{2}.ckpt'.format(self.task, self.nn, epoch)
+              model_path = '../dnlp/models/emr/{0}-{1}-{2}.ckpt'.format(self.task, self.nn, epoch)
           else:
-            model_path = '../dnlp/models/{0}-{1}-embedding-{2}.ckpt'.format(self.task, self.nn, epoch)
+            model_path = '../dnlp/models/emr/{0}-{1}-embedding-{2}.ckpt'.format(self.task, self.nn, epoch)
           saver.save(sess, model_path)
           self.save_config(model_path)
       self.train_writer.close()

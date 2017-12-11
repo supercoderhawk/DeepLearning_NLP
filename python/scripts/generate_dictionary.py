@@ -52,6 +52,25 @@ def output_dictionary(dictionary, filename):
     for ch in dictionary:
       f.write(ch + ' ' + str(dictionary[ch]) + '\n')
 
+def read_dictionary(filename):
+  dictionary = {}
+  with open(filename,encoding='utf-8') as f:
+    entries = [l.split(' ') for l in f.read().splitlines()]
+    for e,idx in entries:
+      dictionary[e] = idx
+  return dictionary
+
+def merge(dictionaries):
+  items = set()
+  for d in dictionaries:
+    items.update(read_dictionary(d).keys())
+  items.difference_update([BATCH_PAD,UNK,STRT,END])
+  dictionary={BATCH_PAD:BATCH_PAD_VAL,UNK:UNK_VAL,STRT:STRT_VAL,END:END_VAL}
+  index = len(dictionary)
+  for i in items:
+    dictionary[i] = index
+    index+=1
+  return dictionary
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
@@ -60,6 +79,7 @@ if __name__ == '__main__':
   parser.add_argument('--w',dest='word',action='store_true',default=False)
   parser.add_argument('files', nargs='*')
   parser.add_argument('--folder', dest='folder',type=str,nargs='?')
+  parser.add_argument('--m',dest='merge',nargs='+')
   parser.add_argument('--o', dest='o', nargs='?')
   args = parser.parse_args(sys.argv[1:])
   conll = args.conll
@@ -68,13 +88,13 @@ if __name__ == '__main__':
   files = args.files
   if not output:
     print('don\'t enter output dict file path')
-  if not len(files) and not args.folder:
+  if not len(files) and not args.folder and not args.merge:
     print('don\'t enter filenames')
     exit(1)
   if conll and raw:
     print('can\'t use two formats simultaneously.')
     exit(1)
-  if not conll and not raw and not args.word:
+  if not conll and not raw and not args.word and not args.merge:
     print('don\'t enter dictionary mode')
   if raw:
     dictionary = generate_chinese_character_dictionary(files)
@@ -84,6 +104,8 @@ if __name__ == '__main__':
       dictionary = generate_word_dictionary(filenames)
     else:
       dictionary = generate_word_dictionary(files)
+  elif args.merge:
+    dictionary = merge(args.merge)
   else:
     dictionary = generate_dictionary_from_conll(files)
 

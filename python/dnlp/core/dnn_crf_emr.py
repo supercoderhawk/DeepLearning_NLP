@@ -8,7 +8,7 @@ from dnlp.config import DnnCrfConfig
 
 class DnnCrfEmr(DnnCrfBase):
   def __init__(self, *, config: DnnCrfConfig = None, data_path: str = '', dtype: type = tf.float32, task:str='ner',mode: str = 'train',
-               train: str = '', nn: str, model_path: str = ''):
+               nn: str, model_path: str = ''):
     if mode not in ['train', 'predict']:
       raise Exception('mode error')
     if nn not in ['mlp', 'rnn', 'lstm', 'bilstm', 'gru']:
@@ -52,11 +52,6 @@ class DnnCrfEmr(DnnCrfBase):
       self.sess = tf.Session()
       self.sess.run(tf.global_variables_initializer())
       tf.train.Saver().restore(save_path=self.model_path, sess=self.sess)
-    elif train == 'll':
-      self.ll_loss, _ = tf.contrib.crf.crf_log_likelihood(self.output, self.real_indices, self.seq_length,
-                                                          self.transition)
-      self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
-      self.train_ll = self.optimizer.minimize(-self.ll_loss)
     else:
       # 构建训练函数
       # 训练用placeholder
@@ -135,26 +130,6 @@ class DnnCrfEmr(DnnCrfBase):
         feed_dict[self.trans_init_curr] = trans_init_neg_indices
         sess.run(self.train_with_init, feed_dict)
 
-  def fit_ll(self, epochs: int = 100, interval: int = 20):
-    with tf.Session() as sess:
-      tf.global_variables_initializer().run()
-      saver = tf.train.Saver(max_to_keep=epochs)
-      for epoch in range(1, epochs + 1):
-        print('epoch:', epoch)
-        for _ in range(self.batch_count):
-          characters, labels, lengths = self.get_batch()
-          # scores = sess.run(self.output, feed_dict={self.input: characters})
-          feed_dict = {self.input: characters, self.real_indices: labels, self.seq_length: lengths}
-          sess.run(self.train_ll, feed_dict=feed_dict)
-          # self.fit_batch(characters, labels, lengths, sess)
-        if epoch % interval == 0:
-          model_path = '../dnlp/models/emr_old/{0}-{1}.ckpt'.format(self.nn, epoch)
-          saver.save(sess, model_path)
-          self.save_config(model_path)
-
-  def fit_batch_ll(self):
-    pass
-
   def generate_transition_update_index(self, correct_labels, current_labels):
     if correct_labels.shape != current_labels.shape:
       print('sequence length is not equal')
@@ -218,7 +193,7 @@ class DnnCrfEmr(DnnCrfBase):
     return layer
 
   def get_rnn_layer(self, layer: tf.Tensor) -> tf.Tensor:
-    rnn = tf.nn.rnn_cell.RNNCell(self.hidden_units)
+    rnn = tf.nn.rnn_cell.BasicRNNCell(self.hidden_units)
     rnn_output, rnn_out_state = tf.nn.dynamic_rnn(rnn, layer, dtype=self.dtype)
     self.params += [v for v in tf.global_variables() if v.name.startswith('rnn')]
     return tf.transpose(rnn_output)

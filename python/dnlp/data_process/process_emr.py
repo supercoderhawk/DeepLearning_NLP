@@ -2,7 +2,7 @@
 import os
 import re
 import pickle
-from itertools import chain
+import random
 from dnlp.utils.constant import UNK
 
 RE_SAPCE = re.compile('[ ]+')
@@ -18,6 +18,10 @@ class ProcessEMR(object):
       self.category_name = pickle.load(f)
     # self.reversed_category_name = dict(zip(self.category_name.values(),self.category_name.keys()))
     self.mode = mode
+    if self.mode =='train':
+      self.window = 5
+    else:
+      self.window = 100
     self.dict_path = dict_path
     self.files = self.get_files()
     self.annotations = self.read_annotations()
@@ -35,6 +39,7 @@ class ProcessEMR(object):
     for relation_category in self.relation_categories:
       self.relation_category_labels[relation_category] = relation_category_index
       relation_category_index += 1
+    print(len(self.relation_category_labels))
     with open(self.base_folder+'relation_index.pickle','wb') as f:
       pickle.dump(self.relation_category_labels,f)
     self.two_categories = self.generate_re_two_training_data()
@@ -49,6 +54,7 @@ class ProcessEMR(object):
       false_count += len(annotation['false_relations'])
     all_count = true_count + false_count
     print(false_count / all_count)
+    print(all_count)
 
   def generate_re_two_training_data(self):
     train_data = []
@@ -57,11 +63,16 @@ class ProcessEMR(object):
       for true_rel_name in annotation['true_relations']:
         true_rel = annotation['true_relations'][true_rel_name]
         train_data.append(
-          {'words': word_indices, 'primary': true_rel['primary'], 'secondary': true_rel['secondary'], 'type': True})
+          {'words': word_indices, 'primary': true_rel['primary'], 'secondary': true_rel['secondary'], 'type': 1})
       for false_rel_name in annotation['false_relations']:
         false_rel = annotation['false_relations'][false_rel_name]
         train_data.append(
-          {'words': word_indices, 'primary': false_rel['primary'], 'secondary': false_rel['secondary'], 'type': False})
+          {'words': word_indices, 'primary': false_rel['primary'], 'secondary': false_rel['secondary'], 'type': 0})
+    random.shuffle(train_data)
+    random.shuffle(train_data)
+    random.shuffle(train_data)
+    random.shuffle(train_data)
+    random.shuffle(train_data)
     return train_data
 
   def generate_re_mutli_training_data(self):
@@ -163,7 +174,7 @@ class ProcessEMR(object):
                 sentence['true_relations'][id] = rel
               else:
                 sentence['true_relations'] = {id: rel}
-      window = 8
+
       for sentence_text in data:
         sentence = data[sentence_text]
         if not sentence.get('true_relations'):
@@ -176,7 +187,7 @@ class ProcessEMR(object):
         all_indices = sorted([l[0] for l in all_info])
         false_relations = {}
         for i, t in all_info:
-          secondary_candidates = self.get_span(i, window, comma_index, all_indices, directed)
+          secondary_candidates = self.get_span(i, self.window, comma_index, all_indices, directed)
           candidates = [(f, s) for f, s in zip(len(secondary_candidates) * [i], secondary_candidates)]
           candidates = self.filter_entities(sentence['new_entities'], candidates)
           for f, s in [c for c in candidates if c not in true_pairs]:
