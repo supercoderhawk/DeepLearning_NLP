@@ -43,7 +43,7 @@ class DnnCrf(DnnCrfBase):
       # 查找表层
       self.embedding_layer = self.get_embedding_layer()
       # 执行drpout
-      if dropout_position == 'input':
+      if mode == 'train' and dropout_position == 'input':
         self.embedding_layer = self.get_dropout_layer(self.embedding_layer)
       # 隐藏层
       if nn == 'mlp':
@@ -56,7 +56,7 @@ class DnnCrf(DnnCrfBase):
         self.hidden_layer = self.get_gru_layer(self.embedding_layer)
       else:
         self.hidden_layer = self.get_rnn_layer(self.embedding_layer)
-      if dropout_position == 'hidden':
+      if mode == 'train' and dropout_position == 'hidden':
         self.hidden_layer = self.get_dropout_layer(self.hidden_layer)
       # 输出层
       self.output = self.get_output_layer(self.hidden_layer)
@@ -88,7 +88,7 @@ class DnnCrf(DnnCrfBase):
         tf.summary.scalar('loss', self.mean_loss)
         self.merged = tf.summary.merge_all()
 
-  def fit(self, epochs: int = 40, interval: int = 10):
+  def fit(self, epochs: int = 50, interval: int = 10):
     with tf.Session(graph=self.graph) as sess:
       tf.global_variables_initializer().run()
       saver = tf.train.Saver(max_to_keep=epochs)

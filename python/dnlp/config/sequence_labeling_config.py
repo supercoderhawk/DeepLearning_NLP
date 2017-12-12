@@ -2,7 +2,7 @@
 
 
 class DnnCrfConfig(object):
-  def __init__(self, *, skip_left: int = 0, skip_right: int = 2, embed_size: int = 100, hidden_units: int = 150,
+  def __init__(self, *, skip_left: int = 1, skip_right: int = 0, embed_size: int = 100, hidden_units: int = 150,
                learning_rate: float = 0.2, lam: float = 1e-4, dropout_rate: float = 0.2, batch_length: int = 300,
                batch_size=20):
     self.__skip_left = skip_left
