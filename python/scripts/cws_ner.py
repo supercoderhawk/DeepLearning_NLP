@@ -405,7 +405,7 @@ if __name__ == '__main__':
     elif args.emr:
       # train_emr_old_method()
       # train_emr_cws()
-      # train_emr_word_skipgram()
+      train_emr_word_skipgram()
       train_emr_word_cbow()
       # train_emr_with_embeddings()
       # train_emr_ngram('mlp')

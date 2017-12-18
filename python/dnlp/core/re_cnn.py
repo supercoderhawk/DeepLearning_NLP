@@ -1,11 +1,10 @@
 # -*- coding: UTF-8 -*-
 import tensorflow as tf
 import numpy as np
-import pickle
 from collections import Counter
 from dnlp.core.re_cnn_base import RECNNBase
 from dnlp.config import RECNNConfig
-from dnlp.utils.constant import BATCH_PAD, BATCH_PAD_VAL
+
 
 
 class RECNN(RECNNBase):
@@ -23,6 +22,12 @@ class RECNN(RECNNBase):
     self.remark = remark
 
     self.concat_embed_size = self.word_embed_size + 2 * self.position_embed_size
+    self.words, self.primary, self.secondary, self.labels = self.load_data()
+    self.input_words = tf.constant(self.words)
+    self.input_primary = tf.constant(self.primary)
+    self.input_secondary = tf.constant(self.secondary)
+    self.input_labels = tf.constant(self.labels)
+    self.input_indices = tf.placeholder(tf.int32, [self.batch_size])
     self.input_characters = tf.placeholder(tf.int32, [None, self.batch_length])
     self.input_position = tf.placeholder(tf.int32, [None, self.batch_length])
     self.input = tf.placeholder(self.dtype, [None, self.batch_length, self.concat_embed_size, 1])
@@ -39,6 +44,10 @@ class RECNN(RECNNBase):
     self.full_connected_weight = self.__weight_variable([self.filter_size * len(self.window_size), self.relation_count],
                                                         name='full_connected_weight')
     self.full_connected_bias = self.__weight_variable([self.relation_count], name='full_connected_bias')
+    self.input_words_lookup = tf.nn.embedding_lookup(self.input_words,self.input_indices)
+    self.input_primary_lookup = tf.nn.embedding_lookup(self.input_primary,self.input_indices)
+    self.input_secondary_lookup = tf.nn.embedding_lookup(self.input_secondary, self.input_indices)
+    self.input_labels_lookup = tf.nn.embedding_lookup(self.input_labels, self.input_indices)
     self.position_lookup = tf.nn.embedding_lookup(self.position_embedding, self.input_position)
     self.character_lookup = tf.nn.embedding_lookup(self.word_embedding, self.input_characters)
     self.character_embed_holder = tf.placeholder(self.dtype,
@@ -49,7 +58,8 @@ class RECNN(RECNNBase):
                                                  [None, self.batch_length, self.position_embed_size])
     self.emebd_concat = tf.expand_dims(
       tf.concat([self.character_embed_holder, self.primary_embed_holder, self.secondary_embed_holder], 2), 3)
-    self.words, self.primary, self.secondary, self.labels = self.load_data()
+
+
 
     if self.mode == 'train':
       self.start = 0
@@ -111,10 +121,20 @@ class RECNN(RECNNBase):
     with tf.Session() as sess:
       tf.global_variables_initializer().run()
       sess.graph.finalize()
+      start = 0
       for i in range(1, epochs + 1):
         print('epoch:' + str(i))
-        for _ in range(self.data_count // self.batch_size):
-          words, primary, secondary, labels = self.load_batch()
+        for j in range(self.data_count // self.batch_size):
+          if start + self.batch_size < self.data_count:
+            indices = list(range(start,start+self.batch_size))
+            start += self.batch_size
+          else:
+            new_start = self.batch_size-self.data_count+start
+            indices = list(range(start, self.data_count))+list(range(0,new_start))
+            start = new_start
+          words, primary, secondary, labels = sess.run([self.input_words,self.input_primary,self.input_secondary,
+                                                        self.input_labels],feed_dict={self.input_indices:indices})
+          # words, primary, secondary, labels = self.load_batch()
           character_embeds, primary_embeds = sess.run([self.character_lookup, self.position_lookup],
                                                       feed_dict={self.input_characters: words,
                                                                  self.input_position: primary})
@@ -190,27 +210,7 @@ class RECNN(RECNNBase):
       self.start = new_start
     return words, primary, secondary, labels
 
-  def load_data(self):
-    primary = []
-    secondary = []
-    words = []
-    labels = []
-    with open(self.data_path, 'rb') as f:
-      data = pickle.load(f)
-      for sentence in data:
-        sentence_words = sentence['words']
-        if len(sentence_words) < self.batch_length:
-          sentence_words += [self.dictionary[BATCH_PAD]] * (self.batch_length - len(sentence_words))
-        else:
-          sentence_words = sentence_words[:self.batch_length]
-        words.append(sentence_words)
-        primary.append(np.arange(self.batch_length) - sentence['primary'] + self.batch_length - 1)
-        secondary.append(np.arange(self.batch_length) - sentence['secondary'] + self.batch_length - 1)
-        sentence_labels = np.zeros([self.relation_count])
-        sentence_labels[sentence['type']] = 1
-        labels.append(sentence_labels)
-    return np.array(words, np.int32), np.array(primary, np.int32), np.array(secondary, np.int32), np.array(labels,
-                                                                                                           np.float32)
+
 
   def __weight_variable(self, shape, name):
     initial = tf.truncated_normal(shape, stddev=0.1, dtype=self.dtype)
