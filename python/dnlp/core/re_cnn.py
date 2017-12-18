@@ -134,7 +134,7 @@ class RECNN(RECNNBase):
             start = new_start
           words, primary, secondary, labels = sess.run([self.input_words,self.input_primary,self.input_secondary,
                                                         self.input_labels],feed_dict={self.input_indices:indices})
-          # words, primary, secondary, labels = self.load_batch()
+          # words, primary, secondary, labels = self.load_batch() 
           character_embeds, primary_embeds = sess.run([self.character_lookup, self.position_lookup],
                                                       feed_dict={self.input_characters: words,
                                                                  self.input_position: primary})
