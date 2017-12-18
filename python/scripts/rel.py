@@ -3,6 +3,7 @@ import argparse
 import sys
 import time
 import csv
+import xlsxwriter
 from dnlp.core.re_cnn import RECNN, RECNNConfig
 
 WINDOW_LIST = [(2,), (3,), (4,), (2, 3), (3, 4), (2, 3, 4)]
@@ -76,7 +77,7 @@ def test_re_cnn(mode='two', remark=''):
     writer = csv.DictWriter(f, ['name', 'p', 'r', 'f1'])
     writer.writeheader()
     for w, e, ee in zip(WINDOW_LIST, epoch, epoch_embedding):
-      p, r, f1 = test_re_cnn_by_window(w, e, mode=mode, relation_count=relation_count,remark='_directed')
+      p, r, f1 = test_re_cnn_by_window(w, e, mode=mode, relation_count=relation_count, remark='_directed')
       # p, r, f1 = test_re_cnn_by_window(w, e, mode='two', relation_count=2)
       writer.writerow({'name': '_'.join(map(str, w)), 'p': fmt(p), 'r': fmt(r), 'f1': fmt(f1)})
       # if w in [(3,), (4,)]:
@@ -91,6 +92,25 @@ def test_re_cnn(mode='two', remark=''):
       p, r, f1 = test_re_cnn_by_window(w, e, mode=mode, relation_count=relation_count, embedding_path=embedding_path,
                                        remark='_skip_gram')
       writer.writerow({'name': '_'.join(map(str, w)), 'p': fmt(p), 'r': fmt(r), 'f1': fmt(f1)})
+
+
+def get_re_cnn_result(mode='two'):
+  if mode == 'two':
+    relation_count = 2
+  else:
+    relation_count = 28
+  filename = '../dnlp/data/emr/re_cnn_result_{0}.xlsx'.format(mode)
+  workbook = xlsxwriter.Workbook(filename)
+  for w in WINDOW_LIST:
+    core_name = '_'.join(map(str, w))
+    sheet = workbook.add_worksheet(core_name)
+    for i in range(1, 51):
+      p1, r1, f11 = test_re_cnn_by_window(w, i, mode=mode, relation_count=relation_count, remark='_directed')
+      p2, r2, f12 = test_re_cnn_by_window(w, i, mode=mode, relation_count=relation_count, remark='_cbow_directed')
+      p3, r3, f13 = test_re_cnn_by_window(w, i, mode=mode, relation_count=relation_count, remark='_skip_gram_directed')
+      sheet.write_row(i,0,[fmt(p1),fmt(r1),fmt(f11),fmt(p2),fmt(r2),fmt(f12),fmt(p3),fmt(r3),fmt(f13)])
+
+  workbook.close()
 
 
 def fmt(n):
@@ -140,7 +160,9 @@ if __name__ == '__main__':
   else:
     # test_re_cnn()
     # test_re_cnn_by_window((2,),epoch=1,embedding_path=SKIP_GRAM_PATH,remark='_skip_gram')
-    test_re_cnn_by_window((2, ), epoch=5, embedding_path=CBOW_PATH, remark='_cbow_directed')
+    # test_re_cnn_by_window((2,), epoch=5, embedding_path=CBOW_PATH, remark='_cbow_directed')
+    get_re_cnn_result()
+    get_re_cnn_result('multi')
     # test_re_cnn(remark='_directed')
     # test_re_cnn('multi')
     # test_re_cnn_with_embedding()
