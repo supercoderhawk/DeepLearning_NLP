@@ -1,9 +1,9 @@
 # -*- coding:utf-8 -*-
 
 class RECNNConfig(object):
-  def __init__(self,window_size:tuple=(3,4,),filter_size:int=150,learning_rate:float=0.1,dropout_rate:float=0.5,
-               lam:float=1e-4,word_embed_size:int=300,position_embed_size:int=50,batch_length:int=85,
-               batch_size:int=50):
+  def __init__(self,window_size:tuple=(3,4,),filter_size:int=150,learning_rate:float=0.05,dropout_rate:float=0.5,
+               lam:float=5e-4,word_embed_size:int=300,position_embed_size:int=50,batch_length:int=85,
+               batch_size:int=20):
     self.__window_size = window_size
     self.__filter_size = filter_size
     self.__learning_rate = learning_rate

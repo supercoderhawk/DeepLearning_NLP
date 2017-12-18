@@ -107,7 +107,7 @@ class RECNN(RECNNBase):
     return tf.nn.max_pool(x, ksize=[1, self.batch_length - window_size + 1, 1, 1],
                           strides=[1, 1, 1, 1], padding='VALID')
 
-  def fit(self, epochs=40, interval=5):
+  def fit(self, epochs=50, interval=5):
     with tf.Session() as sess:
       tf.global_variables_initializer().run()
       sess.graph.finalize()

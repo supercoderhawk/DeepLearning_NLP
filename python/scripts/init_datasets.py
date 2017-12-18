@@ -56,6 +56,8 @@ def build_emr_re():
 
   ProcessEMR(base_folder=base_folder, dict_path=dict_path)
   ProcessEMR(base_folder=base_folder, dict_path=dict_path, mode='test')
+  ProcessEMR(base_folder=base_folder, dict_path=dict_path,directed=True)
+  ProcessEMR(base_folder=base_folder, dict_path=dict_path, mode='test',directed=True)
   # ProcessCWS(files=('emr_cws.txt',),base_folder=base_folder,dict_path=base_folder+'emr_dict.utf8',name='emr_cws')
   EmbeddingPertrainProcess(base_folder, ('emr_cws.txt',), dict_path, 2, mode='word',
                            output_name='emr_word_light_skip_gram.pickle')

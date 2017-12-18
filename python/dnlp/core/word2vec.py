@@ -5,7 +5,7 @@ import math
 import tensorflow as tf
 
 
-class SkipGram(object):
+class Word2Vec(object):
   def __init__(self, src_filename: str, dest_filename: str, window_size:int=4, mode='skip_gram', batch_size: int = 128,
                embed_size: int = 100, num_sampled: int = 64, steps: int = 50000):
     with open(src_filename, 'rb') as f:
@@ -34,7 +34,8 @@ class SkipGram(object):
 
     embed = tf.nn.embedding_lookup(self.embeddings, train_inputs)
     if self.mode == 'cbow':
-      embed = tf.reduce_sum(embed, 1)
+      # embed = tf.reduce_sum(embed, 1)
+      embed = tf.reduce_mean(embed, 1)
 
     nce_weights = tf.Variable(
       tf.truncated_normal([self.vocab_size, self.embed_size],

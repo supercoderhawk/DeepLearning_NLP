@@ -9,22 +9,23 @@ RE_SAPCE = re.compile('[ ]+')
 
 
 class ProcessEMR(object):
-  def __init__(self, base_folder: str, dict_path: str = '', mode='train'):
+  def __init__(self, base_folder: str, dict_path: str = '', mode='train', directed=False):
     self.base_folder = base_folder
     self.data_folder = base_folder + 'emr_paper/'
     self.relation_name_file = base_folder + 'rel_names'
     self.relation_pair_file = base_folder + 'rel_pairs'
+    self.directed = directed
     with open(self.relation_name_file, 'rb') as f:
       self.category_name = pickle.load(f)
     # self.reversed_category_name = dict(zip(self.category_name.values(),self.category_name.keys()))
     self.mode = mode
-    if self.mode =='train':
+    if self.mode == 'train':
       self.window = 5
     else:
       self.window = 100
     self.dict_path = dict_path
     self.files = self.get_files()
-    self.annotations = self.read_annotations()
+    self.annotations = self.read_annotations(directed)
     self.dictionary = self.read_dictionary()
     self.statistics()
     self.relation_categories = {'PartOf': '部位', 'PropertyOf': '性质', 'DegreeOf': '程度', 'QualityValue': '定性值',
@@ -40,8 +41,8 @@ class ProcessEMR(object):
       self.relation_category_labels[relation_category] = relation_category_index
       relation_category_index += 1
     print(len(self.relation_category_labels))
-    with open(self.base_folder+'relation_index.pickle','wb') as f:
-      pickle.dump(self.relation_category_labels,f)
+    with open(self.base_folder + 'relation_index.pickle', 'wb') as f:
+      pickle.dump(self.relation_category_labels, f)
     self.two_categories = self.generate_re_two_training_data()
     self.multi_categories = self.generate_re_mutli_training_data()
     self.save_data()
@@ -89,13 +90,17 @@ class ProcessEMR(object):
     return list(map(lambda w: self.dictionary[w] if w in self.dictionary else self.dictionary[UNK], words))
 
   def save_data(self):
-    with open(self.base_folder+self.mode+'_two.pickle','wb') as f:
-      pickle.dump(self.two_categories,f)
+    if self.directed:
+      two_path = self.base_folder + self.mode + '_two_directed.pickle'
+      multi_path = self.base_folder + self.mode + '_multi_directed.pickle'
+    else:
+      two_path = self.base_folder + self.mode + '_two.pickle'
+      multi_path = self.base_folder + self.mode + '_multi.pickle'
+    with open(two_path, 'wb') as f:
+      pickle.dump(self.two_categories, f)
 
-    with open(self.base_folder+self.mode+'_multi.pickle','wb') as f:
-      pickle.dump(self.multi_categories,f)
-
-
+    with open(multi_path, 'wb') as f:
+      pickle.dump(self.multi_categories, f)
 
   def read_dictionary(self, reverse=False):
     dictionary = {}
@@ -116,7 +121,7 @@ class ProcessEMR(object):
       files.add(os.path.splitext(l)[0])
     return files
 
-  def read_annotations(self):
+  def read_annotations(self, directed=False):
     all_sentences = []
     for file in self.files:
       filename = self.data_folder + self.mode + '/' + file
@@ -150,7 +155,7 @@ class ProcessEMR(object):
             print('fuck your world')
           sentence['new_entities'][entity['index']] = entity
 
-      data = self.read_relation_in_single_file(filename + '.ann', sentence_dict)
+      data = self.read_relation_in_single_file(filename + '.ann', sentence_dict, directed)
       all_sentences.extend(data.values())
     return all_sentences
 

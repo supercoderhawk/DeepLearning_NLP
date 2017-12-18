@@ -8,7 +8,7 @@ from dnlp.utils.constant import UNK
 class EmbeddingPertrainProcess(Preprocessor):
   def __init__(self, base_folder: str, files: tuple, dict_path: str, skip_window: int,
                output_name: str,  mode:str='character',algorithm='skip_gram'):
-    Preprocessor.__init__(self, base_folder=base_folder, files=files, dict_path=dict_path)
+    Preprocessor.__init__(self, base_folder=base_folder, dict_path=dict_path)
     self.skip_window = skip_window
     self.files = files
     self.output_name = output_name
