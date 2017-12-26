@@ -82,4 +82,7 @@ if __name__ == '__main__':
   # copy()
   # build_cws_datasets()
   # build_emr_datasets()
-  build_emr_re()
+  # build_emr_re()
+  base_folder = '../dnlp/data/emr/'
+  dict_path = base_folder + 'emr_merged_word_dict.utf8'
+  ProcessEMR(base_folder=base_folder, dict_path=dict_path, directed=True)
