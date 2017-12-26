@@ -6,11 +6,10 @@ from dnlp.core.re_cnn_base import RECNNBase
 from dnlp.config import RECNNConfig
 
 
-
 class RECNN(RECNNBase):
   def __init__(self, config: RECNNConfig, dtype: type = tf.float32, dict_path: str = '', mode: str = 'train',
                data_path: str = '', relation_count: int = 2, model_path: str = '', embedding_path: str = '',
-               remark:str=''):
+               remark: str = ''):
     tf.reset_default_graph()
     RECNNBase.__init__(self, config, dict_path)
     self.dtype = dtype
@@ -44,8 +43,8 @@ class RECNN(RECNNBase):
     self.full_connected_weight = self.__weight_variable([self.filter_size * len(self.window_size), self.relation_count],
                                                         name='full_connected_weight')
     self.full_connected_bias = self.__weight_variable([self.relation_count], name='full_connected_bias')
-    self.input_words_lookup = tf.nn.embedding_lookup(self.input_words,self.input_indices)
-    self.input_primary_lookup = tf.nn.embedding_lookup(self.input_primary,self.input_indices)
+    self.input_words_lookup = tf.nn.embedding_lookup(self.input_words, self.input_indices)
+    self.input_primary_lookup = tf.nn.embedding_lookup(self.input_primary, self.input_indices)
     self.input_secondary_lookup = tf.nn.embedding_lookup(self.input_secondary, self.input_indices)
     self.input_labels_lookup = tf.nn.embedding_lookup(self.input_labels, self.input_indices)
     self.position_lookup = tf.nn.embedding_lookup(self.position_embedding, self.input_position)
@@ -58,8 +57,6 @@ class RECNN(RECNNBase):
                                                  [None, self.batch_length, self.position_embed_size])
     self.emebd_concat = tf.expand_dims(
       tf.concat([self.character_embed_holder, self.primary_embed_holder, self.secondary_embed_holder], 2), 3)
-
-
 
     if self.mode == 'train':
       self.start = 0
@@ -126,14 +123,14 @@ class RECNN(RECNNBase):
         print('epoch:' + str(i))
         for j in range(self.data_count // self.batch_size):
           if start + self.batch_size < self.data_count:
-            indices = list(range(start,start+self.batch_size))
+            indices = list(range(start, start + self.batch_size))
             start += self.batch_size
           else:
-            new_start = self.batch_size-self.data_count+start
-            indices = list(range(start, self.data_count))+list(range(0,new_start))
+            new_start = self.batch_size - self.data_count + start
+            indices = list(range(start, self.data_count)) + list(range(0, new_start))
             start = new_start
-          words, primary, secondary, labels = sess.run([self.input_words,self.input_primary,self.input_secondary,
-                                                        self.input_labels],feed_dict={self.input_indices:indices})
+          words, primary, secondary, labels = sess.run([self.input_words, self.input_primary, self.input_secondary,
+                                                        self.input_labels], feed_dict={self.input_indices: indices})
           # words, primary, secondary, labels = self.load_batch() 
           character_embeds, primary_embeds = sess.run([self.character_lookup, self.position_lookup],
                                                       feed_dict={self.input_characters: words,
@@ -147,10 +144,10 @@ class RECNN(RECNNBase):
         if i % interval == 0:
           if self.relation_count == 2:
             model_name = '../dnlp/models/re_{2}/{0}-{1}{3}.ckpt'.format(i, '_'.join(map(str, self.window_size)),
-                                                                        'two',self.remark)
+                                                                        'two', self.remark)
           else:
             model_name = '../dnlp/models/re_{2}/{0}-{1}{3}.ckpt'.format(i, '_'.join(map(str, self.window_size)),
-                                                                        'multi',self.remark)
+                                                                        'multi', self.remark)
 
           self.saver.save(sess, model_name)
 
@@ -209,8 +206,6 @@ class RECNN(RECNNBase):
       labels = self.labels[self.start:new_start]
       self.start = new_start
     return words, primary, secondary, labels
-
-
 
   def __weight_variable(self, shape, name):
     initial = tf.truncated_normal(shape, stddev=0.1, dtype=self.dtype)

@@ -3,11 +3,15 @@ import os
 import re
 import pickle
 import random
+import json
+import pprint
+from collections import OrderedDict
+from itertools import chain
 from dnlp.utils.constant import UNK
 
 RE_SAPCE = re.compile('[ ]+')
 
-
+# print(pprint.pformat([1,[[2]],3,4444444444,77777777777777777777777777],indent=2,width=10))
 class ProcessEMR(object):
   def __init__(self, base_folder: str, dict_path: str = '', mode='train', directed=False):
     self.base_folder = base_folder
@@ -35,6 +39,13 @@ class ProcessEMR(object):
                                 'DoseOf': '用量', 'FamilyOf': '家族成员', 'ModifierOf': '其他修饰词', 'UseMedicine': '用药',
                                 'LeadTo': '导致', 'Find': '发现', 'Confirm': '证实', 'Adopt': '采取', 'Take': '用药',
                                 'Limit': '限定', 'AlongWith': '伴随', 'Complement': '补足'}
+    self.entity_categories = {'Sign': '体征', 'Symptom': '症状', 'Part': '部位', 'Property': '属性', 'Degree': '程度',
+                              'Quality': '定性值', 'Quantity': '定量值', 'Unit': '单位', 'Time': '时间', 'Date': '日期',
+                              'Result': '结果',
+                              'Disease': '疾病', 'DiseaseType': '疾病类型', 'Examination': '检查', 'Location': '地址',
+                              'Medicine': '药物', 'Spec': '规格', 'Usage': '用法', 'Dose': '用量', 'Treatment': '治疗',
+                              'Family': '家族史',
+                              'Modifier': '修饰词'}
     self.relation_category_labels = {}
     relation_category_index = 0
     for relation_category in self.relation_categories:
@@ -45,6 +56,9 @@ class ProcessEMR(object):
       pickle.dump(self.relation_category_labels, f)
     self.two_categories = self.generate_re_two_training_data()
     self.multi_categories = self.generate_re_mutli_training_data()
+    self.export_structured_emr()
+    self.data = self.read_file()
+    self.export()
     self.save_data()
 
   def statistics(self):
@@ -56,6 +70,114 @@ class ProcessEMR(object):
     all_count = true_count + false_count
     print(false_count / all_count)
     print(all_count)
+
+  def read_file(self):
+    data = {}
+    for f in self.files:
+      file_data = {'entities': {}, 'relations': {}}
+      with open(self.data_folder + 'train/' + f + '.ann', encoding='utf-8') as f:
+        entries = [l.split('\t') for l in f.read().splitlines() if l]
+        for entry in entries:
+          idx = entry[0]
+          if idx.startswith('T'):
+            e_type, start, end = entry[1].split(' ')
+            e_type = self.entity_categories[e_type]
+            start = int(start)
+            end = int(end)
+            file_data['entities'][idx] = {'text': entry[2], 'type': e_type}
+          elif idx.startswith('R'):
+            r_type, r1, r2 = entry[1].split(' ')
+            r1 = r1[r1.index(':') + 1:]
+            r2 = r2[r2.index(':') + 1:]
+            if r1 not in file_data['relations']:
+              file_data['relations'][r1] = [(r2, r_type)]
+            else:
+              file_data['relations'][r1].append((r2, r_type))
+      data[f] = file_data
+    return data
+
+  def export(self):
+    for filename, file_data in self.data.items():
+      filename = os.path.basename(filename.name[:-4])
+      result = {}
+      entities = file_data['entities'].copy()
+      relations = file_data['relations']
+      for e_id, entity in entities.items():
+        e_type = entity['type']
+        # e = entity['text']
+        if e_id in relations:
+          attribute = {}
+          for r2, rt in relations[e_id]:
+            e2 = file_data['entities'][r2].copy()
+            # e2['name'] = self.relation_categories[rt]
+            # attribute.append(e2)
+            if not attribute.get(self.relation_categories[rt]):
+              attribute[self.relation_categories[rt]] = e2['text']
+            else:
+              if type(attribute[self.relation_categories[rt]]) == str:
+                attribute[self.relation_categories[rt]] = [attribute[self.relation_categories[rt]],e2['text']]
+              else:
+                attribute[self.relation_categories[rt]].append(e2['text'])
+          if not result.get(e_type):
+            result[e_type] = [{entity['text']: attribute}]
+          else:
+            result[e_type].append({entity['text']: attribute})
+        else:
+          if not result.get(e_type):
+            result[e_type] = [entity['text']]
+          else:
+            result[e_type].append(entity['text'])
+      new_result = {}
+      for k, v in result.items():
+        nv = [val for val in v if type(val) != str]
+        if nv:
+          new_result[k] = nv
+          # entity['attributes'] = attribute
+        # result.append(entity)
+      with open(self.base_folder + 'structured/' + filename + '.json', 'w', encoding='utf-8') as f:
+        f.write(pprint.pformat(new_result,width=100).replace('\'','"'))
+        # json.dump(new_result, f, ensure_ascii=False)
+
+  def export_structured_emr(self):
+    annotations = {}
+    for sentence in self.annotations:
+      sentence['start'] = min([e['start'] for e in sentence['entities'].values()])
+      if sentence['file'] not in annotations:
+        annotations[sentence['file']] = [sentence]
+      else:
+        annotations[sentence['file']].append(sentence)
+    structured_result = []
+    for annotation in annotations.values():
+      filename = annotation[0]['file'] + '.json'
+      result = []
+      entities = list(chain(*[a['entities'].values() for a in annotation]))
+      entities = sorted(entities, key=lambda e: e['start'])
+      entities_dict = {e['id']: e for e in entities}
+      true_relations = list(chain(*[a['true_relations'].values() for a in annotation]))
+      relations = {}
+      for r in true_relations:
+        if relations.get(r['first']):
+          relations[r['first']].append((r['second'], r['type']))
+          print(relations)
+        else:
+          relations[r['first']] = [(r['second'], r['type'])]
+      for e in entities:
+        e_id = e['id']
+        entity = {'text': e['text'], 'start': e['start'], 'length': e['length'], 'type': e['type']}
+        if e_id in relations:
+          attributes = []
+          for ee_id, ee_type in relations[e_id]:
+            ee = entities_dict[ee_id]
+            attributes.append({'name': self.relation_categories[ee_type], 'text': ee['text'], 'start': ee['start'],
+                               'length': ee['length'], 'type': ee['type']})
+          entity.update({'attributes': attributes})
+        result.append(entity)
+        # with open(self.base_folder+'structured/'+filename,'w',encoding='utf-8') as f:
+        #   json.dump(result,f,ensure_ascii=False)
+      # structured_result.append(result)
+
+    # annotations = OrderedDict(sorted(annotations.items(),key=lambda i:i[1]['start']))
+    return annotations
 
   def generate_re_two_training_data(self):
     train_data = []
@@ -125,7 +247,7 @@ class ProcessEMR(object):
     all_sentences = []
     for file in self.files:
       filename = self.data_folder + self.mode + '/' + file
-      sentence_dict, periods = self.read_entities_in_single_file(filename + '.txt', filename + '.ann')
+      sentence_dict, periods = self.read_entities_in_single_file(filename + '.txt', filename + '.ann', filename)
 
       sentence_words = self.read_cws_file(self.data_folder + 'cws/' + file + '.cws', periods)
       sentences = [''.join(s) for s in sentence_words]
@@ -174,7 +296,7 @@ class ProcessEMR(object):
             # sentence['true_relations'] = {}
             if primary in entities and secondary in entities:
               rel = {'id': id, 'primary': entities[primary]['index'], 'secondary': entities[secondary]['index'],
-                     'type': entry[1]}
+                     'type': entry[1], 'first': primary, 'second': secondary}
               if sentence.get('true_realtions'):
                 sentence['true_relations'][id] = rel
               else:
@@ -245,7 +367,8 @@ class ProcessEMR(object):
 
       return sentence_words
 
-  def read_entities_in_single_file(self, raw_file, ann_file):
+  def read_entities_in_single_file(self, raw_file, ann_file, common_name):
+    common_name = os.path.basename(common_name)
     data = {}
     with open(raw_file, encoding='utf-8') as r:
       sentence = r.read()
@@ -323,6 +446,7 @@ class ProcessEMR(object):
                   entities[id] = entity
                 else:
                   sentence_dict[new_sentence]['entities'] = {id: entity}
+                  sentence_dict[new_sentence]['file'] = common_name
                 break
           else:
             entity = {'id': id, 'start': start, 'length': end - start, 'text': text, 'type': entry[1]}

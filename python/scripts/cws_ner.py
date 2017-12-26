@@ -32,7 +32,7 @@ def test_cws():
 
 def train_emr_cws():
   data_path = '../dnlp/data/emr/emr_cws.pickle'
-  config = DnnCrfConfig()
+  config = DnnCrfConfig(skip_left=1,skip_right=1)
   dnncrf = DnnCrf(config=config, data_path=data_path, nn='lstm', task='cws', remark='emr_cws')
   dnncrf.fit()
 
@@ -404,9 +404,9 @@ if __name__ == '__main__':
       train_cws()
     elif args.emr:
       # train_emr_old_method()
-      # train_emr_cws()
-      train_emr_word_skipgram()
-      train_emr_word_cbow()
+      train_emr_cws()
+      # train_emr_word_skipgram()
+      # train_emr_word_cbow()
       # train_emr_with_embeddings()
       # train_emr_ngram('mlp')
       # train_emr_ngram('rnn')
