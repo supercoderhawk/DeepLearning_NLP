@@ -31,7 +31,7 @@ class ProcessCWS(Preprocessor):
     sentences = []
     for file in self.files:
       with open(self.base_folder + file, encoding='utf8') as f:
-        lines = [l.strip() for l in f.read().splitlines()]
+        lines = [l.strip() for l in f.read().splitlines() if l.strip()]
         if self.delimiter != ():
           for d in self.delimiter:
             new_lines = []
@@ -42,11 +42,11 @@ class ProcessCWS(Preprocessor):
                 new_lines.extend([l + d for l in ls])
             lines = new_lines
         sentences += lines
-    random.shuffle(sentences)
-    random.shuffle(sentences)
-    random.shuffle(sentences)
-    random.shuffle(sentences)
-    random.shuffle(sentences)
+    # random.shuffle(sentences)
+    # random.shuffle(sentences)
+    # random.shuffle(sentences)
+    # random.shuffle(sentences)
+    # random.shuffle(sentences)
     return sentences
 
   def map_to_indices(self):

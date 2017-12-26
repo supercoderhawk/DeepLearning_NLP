@@ -80,6 +80,6 @@ def build_emr_cws_files(base_folder):
 if __name__ == '__main__':
   # init()
   # copy()
-  # build_cws_datasets()
+  build_cws_datasets()
   # build_emr_datasets()
-  build_emr_re()
+  # build_emr_re()

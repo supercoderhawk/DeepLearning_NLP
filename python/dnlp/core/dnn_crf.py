@@ -60,6 +60,7 @@ class DnnCrf(DnnCrfBase):
         self.hidden_layer = self.get_dropout_layer(self.hidden_layer)
       # 输出层
       self.output = self.get_output_layer(self.hidden_layer)
+      # self.output = tf.nn.softmax(self.output,2)
 
       if mode == 'predict':
         if predict != 'll':
@@ -75,7 +76,8 @@ class DnnCrf(DnnCrfBase):
         self.regularization = tf.contrib.layers.apply_regularization(tf.contrib.layers.l2_regularizer(self.lam),
                                                                        self.params )
         self.loss = -self.crf_loss/self.batch_size + self.regularization
-        self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
+        # self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
+        self.optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
         self.new_optimizer = tf.train.AdamOptimizer()
         gvs = self.optimizer.compute_gradients(self.loss)
         cliped_grad = [(tf.clip_by_norm(grad, 5) if grad is not None else grad, var) for grad, var in gvs]
@@ -178,7 +180,7 @@ class DnnCrf(DnnCrfBase):
 
   def get_lstm_layer(self, layer: tf.Tensor) -> tf.Tensor:
     lstm = tf.nn.rnn_cell.BasicLSTMCell(self.hidden_units)
-    lstm_output, lstm_out_state = tf.nn.dynamic_rnn(lstm, layer, dtype=self.dtype)
+    lstm_output, lstm_out_state = tf.nn.dynamic_rnn(lstm, layer, sequence_length=self.seq_length,dtype=self.dtype)
     self.params += [v for v in tf.global_variables() if v.name.startswith('rnn')]
     return lstm_output
 
