@@ -35,10 +35,17 @@ class DnnCrf(DnnCrfBase):
       if mode == 'train':
         self.input = tf.placeholder(tf.int32, [self.batch_size, self.batch_length, self.windows_size])
         self.real_indices = tf.placeholder(tf.int32, [self.batch_size, self.batch_length])
+        self.sentence_inputs = tf.data.Dataset.from_tensor_slices(self.sentences).repeat(-1).batch(self.batch_size)
+        self.label_inputs = tf.data.Dataset.from_tensor_slices(self.labels).repeat(-1).batch(self.batch_size)
+        self.length_inputs = tf.data.Dataset.from_tensor_slices(self.sentence_lengths).repeat(-1).batch(self.batch_size)
+        self.sentence_iterator = self.sentence_inputs.make_initializable_iterator()
+        self.label_iterator = self.label_inputs.make_initializable_iterator()
+        self.length_iterator = self.length_inputs.make_initializable_iterator()
       else:
         self.input = tf.placeholder(tf.int32, [None, self.windows_size])
 
       self.seq_length = tf.placeholder(tf.int32, [None])
+
 
       # 查找表层
       self.embedding_layer = self.get_embedding_layer()
@@ -91,13 +98,22 @@ class DnnCrf(DnnCrfBase):
   def fit(self, epochs: int = 50, interval: int = 10):
     with tf.Session(graph=self.graph) as sess:
       tf.global_variables_initializer().run()
+      sess.run(self.sentence_iterator.initializer)
+      sess.run(self.label_iterator.initializer)
+      sess.run(self.length_iterator.initializer)
+      sentence = self.sentence_iterator.get_next()
+      label = self.label_iterator.get_next()
+      length = self.length_iterator.get_next()
       saver = tf.train.Saver(max_to_keep=epochs)
       for epoch in range(1, epochs + 1):
         print('epoch:', epoch)
         j = 0
         for i in range(self.batch_count):
-          characters, labels, lengths = self.get_batch()
-          feed_dict = {self.input: characters, self.real_indices: labels, self.seq_length: lengths}
+          # sentences, labels, lengths = self.get_batch()
+          sentences = sess.run(sentence)
+          labels = sess.run(label)
+          lengths = sess.run(length)
+          feed_dict = {self.input: sentences, self.real_indices: labels, self.seq_length: lengths}
           _, summary, loss = sess.run([self.train, self.merged, self.mean_loss], feed_dict=feed_dict)
           self.train_writer.add_summary(summary, j)
           j += 1
