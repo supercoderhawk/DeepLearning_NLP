@@ -9,7 +9,7 @@ from dnlp.config import RECNNConfig
 class RECNN(RECNNBase):
   def __init__(self, config: RECNNConfig, dtype: type = tf.float32, dict_path: str = '', mode: str = 'train',
                data_path: str = '', relation_count: int = 2, model_path: str = '', embedding_path: str = '',
-               remark: str = ''):
+               remark: str = '', data_mode='prefetch'):
     tf.reset_default_graph()
     RECNNBase.__init__(self, config, dict_path)
     self.dtype = dtype
@@ -21,12 +21,6 @@ class RECNN(RECNNBase):
     self.remark = remark
 
     self.concat_embed_size = self.word_embed_size + 2 * self.position_embed_size
-    self.words, self.primary, self.secondary, self.labels = self.load_data()
-    self.input_words = tf.constant(self.words)
-    self.input_primary = tf.constant(self.primary)
-    self.input_secondary = tf.constant(self.secondary)
-    self.input_labels = tf.constant(self.labels)
-    self.input_indices = tf.placeholder(tf.int32, [self.batch_size])
     self.input_characters = tf.placeholder(tf.int32, [None, self.batch_length])
     self.input_position = tf.placeholder(tf.int32, [None, self.batch_length])
     self.input = tf.placeholder(self.dtype, [None, self.batch_length, self.concat_embed_size, 1])
@@ -43,10 +37,6 @@ class RECNN(RECNNBase):
     self.full_connected_weight = self.__weight_variable([self.filter_size * len(self.window_size), self.relation_count],
                                                         name='full_connected_weight')
     self.full_connected_bias = self.__weight_variable([self.relation_count], name='full_connected_bias')
-    self.input_words_lookup = tf.nn.embedding_lookup(self.input_words, self.input_indices)
-    self.input_primary_lookup = tf.nn.embedding_lookup(self.input_primary, self.input_indices)
-    self.input_secondary_lookup = tf.nn.embedding_lookup(self.input_secondary, self.input_indices)
-    self.input_labels_lookup = tf.nn.embedding_lookup(self.input_labels, self.input_indices)
     self.position_lookup = tf.nn.embedding_lookup(self.position_embedding, self.input_position)
     self.character_lookup = tf.nn.embedding_lookup(self.word_embedding, self.input_characters)
     self.character_embed_holder = tf.placeholder(self.dtype,
@@ -55,17 +45,24 @@ class RECNN(RECNNBase):
                                                [None, self.batch_length, self.position_embed_size])
     self.secondary_embed_holder = tf.placeholder(self.dtype,
                                                  [None, self.batch_length, self.position_embed_size])
-    self.emebd_concat = tf.expand_dims(
+    self.embedded_concat = tf.expand_dims(
       tf.concat([self.character_embed_holder, self.primary_embed_holder, self.secondary_embed_holder], 2), 3)
-
-    if self.mode == 'train':
-      self.start = 0
-      self.hidden_layer = tf.layers.dropout(self.get_hidden(), self.dropout_rate)
+    if data_mode == 'prefetch':
+      self.words, self.primary, self.secondary, self.labels = self.load_data()
       self.data_count = len(self.words)
+      self.words = tf.data.Dataset.from_tensor_slices(self.words)
+      self.primary = tf.data.Dataset.from_tensor_slices(self.primary)
+      self.secondary = tf.data.Dataset.from_tensor_slices(self.secondary)
+      self.labels = tf.data.Dataset.from_tensor_slices(self.labels)
+      self.input_data = tf.data.Dataset.zip((self.words, self.primary, self.secondary, self.labels))
+      self.input_data = self.input_data.repeat(-1).batch(self.batch_size)
+      self.input_data_iterator = self.input_data.make_initializable_iterator()
+      self.iterator = self.input_data_iterator.get_next()
+    if self.mode == 'train':
+      self.hidden_layer = tf.layers.dropout(self.get_hidden(), self.dropout_rate)
       self.saver = tf.train.Saver(max_to_keep=100)
     else:
       self.hidden_layer = self.get_hidden()
-      # self.hidden_layer = tf.expand_dims(tf.layers.dropout(self.get_hidden(), self.dropout_rate), 0)
       self.sess = tf.Session()
       self.saver = tf.train.Saver().restore(self.sess, self.model_path)
     self.output_no_softmax = tf.matmul(self.hidden_layer, self.full_connected_weight) + self.full_connected_bias
@@ -118,27 +115,19 @@ class RECNN(RECNNBase):
     with tf.Session() as sess:
       tf.global_variables_initializer().run()
       sess.graph.finalize()
-      start = 0
+      sess.run(self.input_data_iterator.initializer)
+
       for i in range(1, epochs + 1):
         print('epoch:' + str(i))
         for j in range(self.data_count // self.batch_size):
-          if start + self.batch_size < self.data_count:
-            indices = list(range(start, start + self.batch_size))
-            start += self.batch_size
-          else:
-            new_start = self.batch_size - self.data_count + start
-            indices = list(range(start, self.data_count)) + list(range(0, new_start))
-            start = new_start
-          words, primary, secondary, labels = sess.run([self.input_words, self.input_primary, self.input_secondary,
-                                                        self.input_labels], feed_dict={self.input_indices: indices})
-          # words, primary, secondary, labels = self.load_batch() 
+          words, primary, secondary, labels = sess.run(self.iterator)
           character_embeds, primary_embeds = sess.run([self.character_lookup, self.position_lookup],
                                                       feed_dict={self.input_characters: words,
                                                                  self.input_position: primary})
           secondary_embeds = sess.run(self.position_lookup, feed_dict={self.input_position: secondary})
-          input = sess.run(self.emebd_concat, feed_dict={self.character_embed_holder: character_embeds,
-                                                         self.primary_embed_holder: primary_embeds,
-                                                         self.secondary_embed_holder: secondary_embeds})
+          input = sess.run(self.embedded_concat, feed_dict={self.character_embed_holder: character_embeds,
+                                                            self.primary_embed_holder: primary_embeds,
+                                                            self.secondary_embed_holder: secondary_embeds})
           # sess.run(self.train_model, feed_dict={self.input: input, self.input_relation: batch['label']})
           sess.run(self.train_cross_entropy_model, feed_dict={self.input: input, self.input_relation: labels})
         if i % interval == 0:
@@ -156,10 +145,10 @@ class RECNN(RECNNBase):
                                                      feed_dict={self.input_characters: words,
                                                                 self.input_position: primary})
     secondary_embeds = self.sess.run(self.position_lookup, feed_dict={self.input_position: secondary})
-    input = self.sess.run(self.emebd_concat, feed_dict={self.character_embed_holder: character_embeds,
-                                                        self.primary_embed_holder: primary_embeds,
-                                                        self.secondary_embed_holder: secondary_embeds})
-    output = self.sess.run(self.output, feed_dict={self.input: input})
+    input_matrix = self.sess.run(self.embedded_concat, feed_dict={self.character_embed_holder: character_embeds,
+                                                                  self.primary_embed_holder: primary_embeds,
+                                                                  self.secondary_embed_holder: secondary_embeds})
+    output = self.sess.run(self.output, feed_dict={self.input: input_matrix})
     return np.argmax(output, 1)
 
   def evaluate(self):
@@ -189,23 +178,6 @@ class RECNN(RECNNBase):
     f1 = 2 * prec * recall / (prec + recall)
     print(prec, recall, f1)
     return prec, recall, f1
-
-  def load_batch(self):
-    if self.start + self.batch_size > self.data_count:
-      new_start = self.start + self.batch_size - self.data_count
-      words = np.concatenate([self.words[self.start:], self.words[:new_start]])
-      primary = np.concatenate([self.primary[self.start:], self.primary[:new_start]])
-      secondary = np.concatenate([self.secondary[self.start:], self.secondary[:new_start]])
-      labels = np.concatenate([self.labels[self.start:], self.labels[:new_start]])
-      self.start = new_start
-    else:
-      new_start = self.start + self.batch_size
-      words = self.words[self.start:new_start]
-      primary = self.primary[self.start:new_start]
-      secondary = self.secondary[self.start:new_start]
-      labels = self.labels[self.start:new_start]
-      self.start = new_start
-    return words, primary, secondary, labels
 
   def __weight_variable(self, shape, name):
     initial = tf.truncated_normal(shape, stddev=0.1, dtype=self.dtype)
