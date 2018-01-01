@@ -204,8 +204,7 @@ class ProcessEMR(object):
       word_indices = self.map_to_indices(annotation['words'])
       for true_rel_name in annotation['true_relations']:
         true_rel = annotation['true_relations'][true_rel_name]
-        train_data.append({'words': word_indices, 'primary': true_rel['primary'], 'secondary': true_rel['secondary'],
-                           'type': self.relation_category_labels[true_rel['type']]})
+        train_data.append({'words': word_indices, 'primary': true_rel['primary'], 'secondary': true_rel['secondary'],'type': self.relation_category_labels[true_rel['type']]})
     return train_data
 
   def map_to_indices(self, words):
