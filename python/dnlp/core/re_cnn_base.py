@@ -4,8 +4,9 @@ import pickle
 from dnlp.config import RECNNConfig
 from dnlp.utils.constant import BATCH_PAD, BATCH_PAD_VAL
 
+
 class RECNNBase(object):
-  def __init__(self, config:RECNNConfig,dict_path:str,data_path:str=''):
+  def __init__(self, config: RECNNConfig, dict_path: str, data_path: str = ''):
     self.window_size = config.window_size
     self.filter_size = config.filter_size
     self.learning_rate = config.learning_rate
@@ -18,8 +19,8 @@ class RECNNBase(object):
     self.dictionary = self.read_dictionary(dict_path)
     self.words_size = len(self.dictionary)
 
-  def read_dictionary(self,dict_path):
-    with open(dict_path,encoding='utf-8') as f:
+  def read_dictionary(self, dict_path):
+    with open(dict_path, encoding='utf-8') as f:
       content = f.read().splitlines()
       dictionary = {}
       dict_arr = map(lambda item: item.split(' '), content)
@@ -47,5 +48,4 @@ class RECNNBase(object):
         sentence_labels = np.zeros([self.relation_count])
         sentence_labels[sentence['type']] = 1
         labels.append(sentence_labels)
-    return np.array(words, np.int32), np.array(primary, np.int32), np.array(secondary, np.int32), np.array(labels,
-                                                                                                           np.float32)
+    return np.array(words, np.int32), np.array(primary, np.int32), np.array(secondary, np.int32), np.array(labels,np.float32)

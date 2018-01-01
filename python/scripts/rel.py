@@ -23,15 +23,16 @@ def train_re_cnn():
   cbow_path = BASE_FOLDER + 'emr_word_light_cbow.npy'
   for w in WINDOW_LIST:
     start = time.time()
-    train_re_cnn_by_window(w, data_path_two_directed, embedding_path=cbow_path, remark='_cbow_directed')
-    train_re_cnn_by_window(w, data_path_two_directed, embedding_path=embedding_path, remark='_skip_gram_directed')
-    train_re_cnn_by_window(w, data_path_multi_directed, relation_count=28, embedding_path=cbow_path,
-                           remark='_cbow_directed')
-    train_re_cnn_by_window(w, data_path_multi_directed, relation_count=28, embedding_path=embedding_path,
-                           remark='_skip_gram_directed')
+    # train_re_cnn_by_window(w, data_path_two_directed, embedding_path=cbow_path, remark='_cbow_directed')
+    # train_re_cnn_by_window(w, data_path_two_directed, embedding_path=embedding_path, remark='_skip_gram_directed')
+    # train_re_cnn_by_window(w, data_path_multi_directed, relation_count=28, embedding_path=cbow_path,
+    #                        remark='_cbow_directed')
+    # train_re_cnn_by_window(w, data_path_multi_directed, relation_count=28, embedding_path=embedding_path,
+    #                        remark='_skip_gram_directed')
     # train_re_cnn_by_window(w,data_path_two)
-    train_re_cnn_by_window(w, data_path_multi_directed, 28, remark='_directed')
     train_re_cnn_by_window(w, data_path_two_directed, remark='_directed')
+    train_re_cnn_by_window(w, data_path_multi_directed, 28, remark='_directed')
+
     print(time.time() - start)
 
 
@@ -161,9 +162,10 @@ if __name__ == '__main__':
     # test_re_cnn()
     # test_re_cnn_by_window((2,),epoch=1,embedding_path=SKIP_GRAM_PATH,remark='_skip_gram')
     # test_re_cnn_by_window((2,), epoch=5, embedding_path=CBOW_PATH, remark='_cbow_directed')
-    get_re_cnn_result()
-    get_re_cnn_result('multi')
-    # test_re_cnn(remark='_directed')
+    # get_re_cnn_result()
+    # get_re_cnn_result('multi')
+    test_re_cnn_by_window((2,3,4), 50, mode='two', relation_count=2, remark='_directed')
+    test_re_cnn(remark='_directed')
     # test_re_cnn('multi')
     # test_re_cnn_with_embedding()
     # test_single_model((2, 3, 4), 1)
