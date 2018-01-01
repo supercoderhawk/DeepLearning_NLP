@@ -1,6 +1,8 @@
 # -*- coding:utf-8 -*-
 import numpy as np
 import pickle
+import json
+from operator import itemgetter
 from itertools import accumulate, permutations
 from dnlp.config.sequence_labeling_config import DnnCrfConfig
 from dnlp.core.dnn_crf import DnnCrf
@@ -111,21 +113,23 @@ def rel_extract(sentences):
     rel_pairs.extend(pp)
   config_two = RECNNConfig(window_size=(2,3,4))
   config_mutli = RECNNConfig(window_size=(2, 3, 4))
-  model_path_two = '../dnlp/models/re_two/50-2_3_4_directed.ckpt'
+  model_path_two = '../dnlp/models/re_two/8-2_3_4_directed.ckpt'
   model_path_multi = '../dnlp/models/re_multi/50-2_3_4_directed.ckpt'
   recnn2 = RECNN(config=config_two, dict_path=DICT_PATH, mode='test', model_path=model_path_two, relation_count=2,data_mode='test')
   recnn = RECNN(config=config_two, dict_path=DICT_PATH, mode='test', model_path=model_path_multi, relation_count=28,data_mode='test')
   two_res = recnn2.predict(sentence_words, primary, secondary)
-  true_words = [words[i] for i in two_res if i]
-  true_rel_pairs = [rel_pairs[i] for i in two_res if i ]
-  true_sentence_words = [sentence_words[i] for i in two_res if i]
-  true_primary = [primary[i] for i in two_res if i]
-  true_secondary = [secondary[i] for i in two_res if i]
+  get_true_rel = itemgetter(*[ii for ii, i in enumerate(two_res) if i])
+  true_words = get_true_rel(words)
+  true_rel_pairs = get_true_rel(rel_pairs)
+  true_sentence_words = get_true_rel(sentence_words)
+  true_primary = get_true_rel(primary)
+  true_secondary = get_true_rel(secondary)
   multi_res = recnn.predict(true_sentence_words, true_primary, true_secondary)
   get_rel_result(true_words,true_rel_pairs,multi_res)
 
 def get_rel_result(words, rel_pairs,rel_types):
   result = {}
+  print(len(rel_pairs))
   for sentence_words, (primary_idx,secondary_idx),rel_type in zip(words,rel_pairs,rel_types):
     rel_type_name = REL_NAME_LIST[rel_type]
     primary = sentence_words[primary_idx]
@@ -133,7 +137,20 @@ def get_rel_result(words, rel_pairs,rel_types):
     primary_type,secondary_type = REL_PAIR_NAMES[rel_type_name]
     primary_type = ENTITY_NAMES[primary_type]
     secondary_type = ENTITY_NAMES[secondary_type]
-    # result[]
+    rel = {'value':secondary,'entity_type':primary_type,'type':REL_NAMES[rel_type_name]}
+    if not result.get(primary):
+      result[primary] = [rel]
+    else:
+      result[primary].append(rel)
+  print(result)
+  merged_result = {t:[] for t in set([rel[0]['entity_type'] for rel in result.values() ])}
+  for primary,value in result.items():
+    res = {primary:{v['type']:v['value'] for v in value}}
+    primary_type = value[0]['entity_type']
+    merged_result[primary_type].append(res)
+  print(merged_result)
+
+
 
 
 def export():

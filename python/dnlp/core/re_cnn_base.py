@@ -6,7 +6,7 @@ from dnlp.utils.constant import BATCH_PAD, BATCH_PAD_VAL
 
 
 class RECNNBase(object):
-  def __init__(self, config: RECNNConfig, dict_path: str, data_path: str = ''):
+  def __init__(self, config: RECNNConfig, dict_path: str, data_path: str = '',mode='train'):
     self.window_size = config.window_size
     self.filter_size = config.filter_size
     self.learning_rate = config.learning_rate
@@ -15,7 +15,10 @@ class RECNNBase(object):
     self.word_embed_size = config.word_embed_size
     self.position_embed_size = config.position_embed_size
     self.batch_length = config.batch_length
-    self.batch_size = config.batch_size
+    if mode == 'train':
+      self.batch_size = config.batch_size
+    else:
+      self.batch_size = 1
     self.dictionary = self.read_dictionary(dict_path)
     self.words_size = len(self.dictionary)
 

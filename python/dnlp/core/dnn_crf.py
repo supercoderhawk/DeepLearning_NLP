@@ -153,7 +153,7 @@ class DnnCrf(DnnCrfBase):
     input = self.indices2input(self.sentence2indices(sentence))
     runner = [self.seq, self.best_score, self.output, self.transition]
     labels, best_score, output, trans = self.sess.run(runner,
-                                                      feed_dict={self.input: input, self.seq_length: [len(sentence)]})
+                                        feed_dict={self.input: input, self.seq_length: [len(sentence)]})
     # print(output)
     # print(trans)
     labels = np.squeeze(labels)
