@@ -11,7 +11,7 @@ class RECNN(RECNNBase):
                data_path: str = '', relation_count: int = 2, model_path: str = '', embedding_path: str = '',
                remark: str = '', data_mode='prefetch'):
     tf.reset_default_graph()
-    RECNNBase.__init__(self, config, dict_path)
+    RECNNBase.__init__(self, config, dict_path,mode=mode)
     self.dtype = dtype
     self.mode = mode
     self.data_path = data_path
@@ -62,6 +62,8 @@ class RECNN(RECNNBase):
       self.hidden_layer = tf.layers.dropout(self.get_hidden(), self.dropout_rate)
       self.saver = tf.train.Saver(max_to_keep=100)
     else:
+      if self.data_path:
+        self.words, self.primary, self.secondary, self.labels = self.load_data()
       self.hidden_layer = self.get_hidden()
       self.sess = tf.Session()
       self.saver = tf.train.Saver().restore(self.sess, self.model_path)
@@ -152,6 +154,7 @@ class RECNN(RECNNBase):
     return np.argmax(output, 1)
 
   def evaluate(self):
+    # self.sess.run(self.input_data)
     res = self.predict(self.words, self.primary, self.secondary)
     res_count = Counter(res)[1]
     target = np.argmax(self.labels, 1)
@@ -173,6 +176,8 @@ class RECNN(RECNNBase):
 
     precs = [c / p for c, p in zip(corr_count, pred_count) if p != 0 and c != 0]
     recalls = [c / r for c, r in zip(corr_count, true_count) if r != 0 and c != 0]
+    print(precs)
+    print(recalls)
     prec = sum(precs) / len(precs)
     recall = sum(recalls) / len(recalls)
     f1 = 2 * prec * recall / (prec + recall)
