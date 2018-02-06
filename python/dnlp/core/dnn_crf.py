@@ -5,7 +5,7 @@ import math
 import os
 import time
 from dnlp.core.dnn_crf_base import DnnCrfBase
-from dnlp.config import DnnCrfConfig
+from dnlp.config.config import DnnCrfConfig
 
 
 class DnnCrf(DnnCrfBase):
@@ -84,11 +84,7 @@ class DnnCrf(DnnCrfBase):
         if train == 'll':
           self.crf_loss, _ = tf.contrib.crf.crf_log_likelihood(self.output, self.real_indices, self.seq_length,
                                                                self.transition)
-          # self.loss = -self.loss
           self.loss = -self.crf_loss / self.batch_size + self.regularization
-          # self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
-          # self.optimizer.minimize(self.loss)
-          # self.train = self.optimizer.minimize(self.loss)
         else:
           self.true_seq = tf.placeholder(tf.int32, [self.batch_size, self.batch_length])
           self.pred_seq = tf.placeholder(tf.int32, [self.batch_size, self.batch_length])
@@ -100,7 +96,6 @@ class DnnCrf(DnnCrfBase):
           state_difference = tf.reduce_sum(
             tf.gather_nd(self.output_placeholder, pred_index) - tf.gather_nd(self.output_placeholder, true_index),
             axis=1)
-          # r = tf.stack([self.true_seq[:, :-1], self.true_seq[:, 1:]], 2)
           transition_difference = tf.reduce_sum(
             tf.gather_nd(self.transition, tf.stack([self.pred_seq[:, :-1], self.pred_seq[:, 1:]], 2)) - tf.gather_nd(
               self.transition, tf.stack([self.true_seq[:, :-1], self.true_seq[:, 1:]], 2)), axis=1)

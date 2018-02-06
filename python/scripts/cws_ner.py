@@ -3,7 +3,7 @@ import sys
 import argparse
 import csv
 import xlsxwriter
-from dnlp.config import DnnCrfConfig
+from dnlp.config.config import DnnCrfConfig
 from dnlp.core.dnn_crf import DnnCrf
 from dnlp.core.dnn_crf_emr import DnnCrfEmr
 from dnlp.core.word2vec import Word2Vec
