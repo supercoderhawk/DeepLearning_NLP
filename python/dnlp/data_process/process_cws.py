@@ -7,7 +7,7 @@ from dnlp.utils.constant import TAG_BEGIN, TAG_INSIDE, TAG_END, TAG_SINGLE,CWS_T
 
 class ProcessCWS(Preprocessor):
   def __init__(self, *, files: tuple = (), dict_path: str = '', base_folder: str = 'dnlp/data', name: str = '',
-               mode:str='train',delimiter: tuple = ('。')):
+               mode:str='train',delimiter: tuple = ('')):
     self.mode = mode
     self.SPLIT_CHAR = '  '
     if base_folder == '':
@@ -23,7 +23,7 @@ class ProcessCWS(Preprocessor):
     self.delimiter = delimiter
     self.sentences = self.preprocess()
     self.tags = CWS_TAGS
-    self.characters, self.labels = self.map_to_indices()
+    self.character_indices, self.characters, self.labels = self.map_to_indices()
     self.save_data()
 
   def preprocess(self):
@@ -46,10 +46,12 @@ class ProcessCWS(Preprocessor):
 
   def map_to_indices(self):
     characters = []
+    character_indices = []
     labels = []
     for sentence in self.sentences:
       sentence = re.sub('[ ]+', self.SPLIT_CHAR, sentence).strip()
       words = sentence.split(self.SPLIT_CHAR)
+      characters.append(list(''.join(words)))
       chs = []
       lls = []
       for word in words:
@@ -69,17 +71,26 @@ class ProcessCWS(Preprocessor):
           lls.append(TAG_BEGIN)
           lls.extend([TAG_INSIDE] * (len(word) - 2))
           lls.append(TAG_END)
-      characters.append(chs)
+      character_indices.append(chs)
       labels.append(lls)
     if self.mode == 'test':
-      characters = list(map(lambda words:''.join(words),characters))
-    return characters, labels
+      character_indices = list(map(lambda words:''.join(words),character_indices))
+    return character_indices,characters, labels
 
   def save_data(self):
     data = {}
-    data['characters'] = self.characters
+    data['characters'] = self.character_indices
     data['labels'] = self.labels
     data['dictionary'] = self.dictionary
     data['tags'] = self.tags
     with open(self.base_folder + self.name + '.pickle', 'wb') as f:
       pickle.dump(data, f)
+    self.save_conll()
+
+  def save_conll(self):
+    content = ''
+    for sentence,label in zip(self.characters,self.labels):
+      lines = '\n'.join(list(map(lambda i:i[0]+' '+i[1],zip(sentence,label))))
+      content+= lines+'\n\n'
+    with open(self.base_folder+self.name+'.conll', 'w',encoding='utf-8') as f:
+      f.write(content)

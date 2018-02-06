@@ -3,8 +3,8 @@
 
 class DnnCrfConfig(object):
   def __init__(self, *, skip_left: int = 0, skip_right: int = 2, embed_size: int = 100, hidden_units: int = 150,
-               learning_rate: float = 0.2, lam: float = 1e-4, dropout_rate: float = 0.2, batch_length: int = 300,
-               batch_size=20):
+               learning_rate: float = 0.005, lam: float = 1e-4, dropout_rate: float = 0.2, batch_length: int = 300,
+               batch_size:int=30,hinge_rate:float=0.2):
     self.__skip_left = skip_left
     self.__skip_right = skip_right
     self.__embed_size = embed_size
@@ -14,6 +14,7 @@ class DnnCrfConfig(object):
     self.__dropout_rate = dropout_rate
     self.__batch_length = batch_length
     self.__batch_size = batch_size
+    self.__hinge_rate = hinge_rate
 
   @property
   def skip_left(self):
@@ -51,6 +52,9 @@ class DnnCrfConfig(object):
   def batch_size(self):
     return self.__batch_size
 
+  @property
+  def hinge_rate(self):
+    return self.__hinge_rate
 
 class MMTNNConfig(object):
   def __init__(self, *, skip_left: int = 2, skip_right: int = 2, character_embed_size: int = 50,
