@@ -1,6 +1,7 @@
 # -*- coding: UTF-8 -*-
 import re
 import pickle
+import random
 from dnlp.data_process.processor import Preprocessor
 from dnlp.utils.constant import TAG_BEGIN, TAG_INSIDE, TAG_END, TAG_SINGLE,CWS_TAGS,UNK_VAL
 
@@ -41,7 +42,11 @@ class ProcessCWS(Preprocessor):
                 new_lines.extend([l + d for l in ls])
             lines = new_lines
         sentences += lines
-
+    random.shuffle(sentences)
+    random.shuffle(sentences)
+    random.shuffle(sentences)
+    random.shuffle(sentences)
+    random.shuffle(sentences)
     return sentences
 
   def map_to_indices(self):
