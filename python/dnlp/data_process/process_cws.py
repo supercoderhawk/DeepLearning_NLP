@@ -42,11 +42,11 @@ class ProcessCWS(Preprocessor):
                 new_lines.extend([l + d for l in ls])
             lines = new_lines
         sentences += lines
-    # random.shuffle(sentences)
-    # random.shuffle(sentences)
-    # random.shuffle(sentences)
-    # random.shuffle(sentences)
-    # random.shuffle(sentences)
+    random.shuffle(sentences)
+    random.shuffle(sentences)
+    random.shuffle(sentences)
+    random.shuffle(sentences)
+    random.shuffle(sentences)
     return sentences
 
   def map_to_indices(self):

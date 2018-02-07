@@ -84,7 +84,7 @@ def evaluate_cws(model, data_path: str):
     for sentence, label in zip(characters, labels_true):
       if len(sentence) <= 3:
         continue
-      words, labels_predict = model.predict(sentence, return_labels=True)
+      words, labels_predict = model.predict_ll(sentence, return_labels=True)
       all_labels_predict.extend(labels_predict)
       all_labels_true.extend(label)
       c, p, r = get_cws_statistics(label, labels_predict)

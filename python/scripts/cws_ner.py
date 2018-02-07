@@ -3,7 +3,7 @@ import sys
 import argparse
 import csv
 import xlsxwriter
-from dnlp.config.config import DnnCrfConfig
+from dnlp.config.sequence_labeling_config import DnnCrfConfig
 from dnlp.core.dnn_crf import DnnCrf
 from dnlp.core.dnn_crf_emr import DnnCrfEmr
 from dnlp.core.word2vec import Word2Vec
@@ -15,14 +15,14 @@ EMR_TEST_FILE = '../dnlp/data/emr/emr_test.pickle'
 def train_cws():
   data_path = '../dnlp/data/cws/pku_training.pickle'
   config = DnnCrfConfig()
-  dnncrf = DnnCrf(config=config, data_path=data_path, nn='lstm',train='ll')
+  dnncrf = DnnCrf(config=config, data_path=data_path, nn='lstm',train='mm')
   dnncrf.fit(interval=1)
 
 
 def test_cws():
   # sentence = '小明来自南京师范大学'
   sentence = '中国人民决心继承邓小平同志的遗志，继续把建设有中国特色社会主义事业推向前进。'
-  model_path = '../dnlp/models/cws-lstm-6.ckpt'
+  model_path = '../dnlp/models/cws-lstm-2.ckpt'
   config = DnnCrfConfig()
   dnncrf = DnnCrf(config=config, mode='predict', model_path=model_path, nn='lstm')
   res, labels = dnncrf.predict(sentence, return_labels=True)

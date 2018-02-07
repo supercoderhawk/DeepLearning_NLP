@@ -5,7 +5,7 @@ import math
 import os
 import time
 from dnlp.core.dnn_crf_base import DnnCrfBase
-from dnlp.config.config import DnnCrfConfig
+from dnlp.config.sequence_labeling_config import DnnCrfConfig
 
 
 class DnnCrf(DnnCrfBase):
@@ -30,7 +30,8 @@ class DnnCrf(DnnCrfBase):
     with self.graph.as_default():
       # 构建
       # tf.reset_default_graph()
-      self.transition = self.__get_variable([self.tags_count, self.tags_count], 'transition')
+      # self.transition = self.__get_variable([self.tags_count, self.tags_count], 'transition')
+      self.transition = tf.Variable(np.array([[-1,1,1,-1],[-1,1,1,-1],[1,-1,-1,1],[1,-1,-1,1]]),dtype=self.dtype,name= 'transition')
       self.transition_init = self.__get_variable([self.tags_count], 'transition_init')
       self.params = [self.transition, self.transition_init]
       # 输入层
@@ -89,25 +90,28 @@ class DnnCrf(DnnCrfBase):
           self.true_seq = tf.placeholder(tf.int32, [self.batch_size, self.batch_length])
           self.pred_seq = tf.placeholder(tf.int32, [self.batch_size, self.batch_length])
           self.output_placeholder = tf.placeholder(self.dtype, [self.batch_size, self.batch_length, self.tags_count])
-          batch_index = np.repeat(np.expand_dims(np.arange(0, self.batch_size), 1), self.batch_length, 1)
-          sent_index = np.repeat(np.expand_dims(np.arange(0, self.batch_length), 0), self.batch_size, 0)
-          true_index = tf.stack([batch_index, sent_index, self.true_seq], axis=2)
-          pred_index = tf.stack([batch_index, sent_index, self.pred_seq ], axis=2)
-          state_difference = tf.reduce_sum(
-            tf.gather_nd(self.output_placeholder, pred_index) - tf.gather_nd(self.output_placeholder, true_index),
+          self.batch_index = np.repeat(np.expand_dims(np.arange(0, self.batch_size), 1), self.batch_length, 1)
+          self.sent_index = np.repeat(np.expand_dims(np.arange(0, self.batch_length), 0), self.batch_size, 0)
+          self.true_index = tf.stack([self.batch_index, self.sent_index, self.true_seq], axis=2)
+          self.pred_index = tf.stack([self.batch_index, self.sent_index, self.pred_seq], axis=2)
+          self.state_difference = tf.reduce_sum(
+            tf.gather_nd(self.output_placeholder, self.pred_index) - tf.gather_nd(self.output_placeholder,
+                                                                                  self.true_index),
             axis=1)
-          transition_difference = tf.reduce_sum(
+          self.transition_difference = tf.reduce_sum(
             tf.gather_nd(self.transition, tf.stack([self.pred_seq[:, :-1], self.pred_seq[:, 1:]], 2)) - tf.gather_nd(
               self.transition, tf.stack([self.true_seq[:, :-1], self.true_seq[:, 1:]], 2)), axis=1)
-          init_transition_difference = tf.gather_nd(self.transition_init,
-                                                    tf.expand_dims(self.pred_seq[:, 0], 1)) - tf.gather_nd(
+          self.init_transition_difference = tf.gather_nd(self.transition_init,
+                                                         tf.expand_dims(self.pred_seq[:, 0], 1)) - tf.gather_nd(
             self.transition_init, tf.expand_dims(self.true_seq[:, 0], 1))
-          hinge_loss = tf.count_nonzero(self.pred_seq - self.true_seq, axis=1, dtype=self.dtype)
-          self.score_diff = state_difference + transition_difference + init_transition_difference + self.hinge_rate*hinge_loss
+          self.hinge_loss = tf.count_nonzero(self.pred_seq - self.true_seq, axis=1, dtype=self.dtype)
+          self.seq, self.best_score = tf.contrib.crf.crf_decode(self.output, self.transition, self.seq_length)
+          # self.score_diff = self.state_difference + self.transition_difference + self.init_transition_difference + self.hinge_rate*self.hinge_loss
+          self.score_diff = self.state_difference + self.transition_difference + self.hinge_rate * self.hinge_loss
           self.loss = tf.reduce_sum(tf.maximum(0.0, self.score_diff)) / self.batch_size + self.regularization
-        self.learning_rate = 0.01
+        self.learning_rate = 0.005
         self.optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
-        self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
+        # self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
         # self.new_optimizer = tf.train.AdamOptimizer()
         gvs = self.optimizer.compute_gradients(self.loss)
         cliped_grad = [(tf.clip_by_norm(grad, 10) if grad is not None else grad, var) for grad, var in gvs]
@@ -152,11 +156,11 @@ class DnnCrf(DnnCrfBase):
         if epoch % interval == 0:
           if not self.embedding_path:
             if self.remark:
-              model_path = '../dnlp/models/emr/{0}-{1}-{2}-{3}.ckpt'.format(self.task, self.nn, self.remark, epoch)
+              model_path = '../dnlp/models/{0}-{1}-{2}-{3}.ckpt'.format(self.task, self.nn, self.remark, epoch)
             else:
-              model_path = '../dnlp/models/emr/{0}-{1}-{2}.ckpt'.format(self.task, self.nn, epoch)
+              model_path = '../dnlp/models/{0}-{1}-{2}.ckpt'.format(self.task, self.nn, epoch)
           else:
-            model_path = '../dnlp/models/emr/{0}-{1}-embedding-{2}.ckpt'.format(self.task, self.nn, epoch)
+            model_path = '../dnlp/models/{0}-{1}-embedding-{2}.ckpt'.format(self.task, self.nn, epoch)
           saver.save(sess, model_path)
           self.save_config(model_path)
       self.train_writer.close()
@@ -170,14 +174,19 @@ class DnnCrf(DnnCrfBase):
         start = time.time()
         for i in range(self.batch_count):
           sentences, labels, lengths = self.get_batch()
-          transition = self.transition.eval()
-          transition_init = self.transition_init.eval()
+          # transition = self.transition.eval()
+          # transition_init = self.transition_init.eval()
           feed_dict = {self.input: sentences, self.seq_length: lengths}
           output = sess.run(self.output, feed_dict=feed_dict)
           pred_seq = []
-          for i in range(self.batch_size):
-            pred_seq.append(self.viterbi(output[i, :lengths[i], :].T, transition, transition_init, self.batch_length))
-          feed_dict = {self.true_seq: labels, self.pred_seq: pred_seq, self.output_placeholder: output}
+          seq = sess.run(self.seq, feed_dict=feed_dict)
+          # for i in range(self.batch_size):
+          #   seq = sess.run(self.seq,feed_dict=feed_dict)
+          # pred_seq.append(self.viterbi(output[i, :lengths[i], :].T, transition, transition_init, self.batch_length))
+          # pred_seq.append(seq)
+          feed_dict = {self.true_seq: labels, self.pred_seq: seq, self.output_placeholder: output}
+          if epoch > 2:
+            self.eval_params(sess, feed_dict)
           sess.run(self.train_model, feed_dict=feed_dict)
         if epoch % interval == 0:
           if not self.embedding_path:
@@ -191,14 +200,21 @@ class DnnCrf(DnnCrfBase):
           self.save_config(model_path)
         print('epoch time', (time.time() - start) / 60)
 
+  def eval_params(self, sess, feed_dict):
+    r = sess.run(self.true_index, feed_dict=feed_dict)
+    rr = sess.run(self.pred_index, feed_dict=feed_dict)
+    diff = sess.run(self.score_diff, feed_dict=feed_dict)
+    # print(diff)
+    print(np.sum(diff))
+
   def predict(self, sentence: str, return_labels=False):
     if self.mode != 'predict':
       raise Exception('mode is not allowed to predict')
 
     input = self.indices2input(self.sentence2indices(sentence))
     runner = [self.output, self.transition, self.transition_init]
-    output, trans, trans_init = self.sess.run(runner, feed_dict={self.input: input,self.seq_length:[len(sentence)]})
-    output = np.squeeze(output,0)
+    output, trans, trans_init = self.sess.run(runner, feed_dict={self.input: input, self.seq_length: [len(sentence)]})
+    output = np.squeeze(output, 0)
     labels = self.viterbi(output.T, trans, trans_init)
     if self.task == 'cws':
       result = self.tags2words(sentence, labels)
