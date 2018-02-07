@@ -5,15 +5,17 @@ import math
 import tensorflow as tf
 
 
-class SkipGram(object):
-  def __init__(self, src_filename: str, dest_filename: str, batch_size: int = 128, embed_size: int = 100,
-               num_sampled: int = 64, steps: int = 50000):
+class Word2Vec(object):
+  def __init__(self, src_filename: str, dest_filename: str, window_size:int=4, mode='skip_gram', batch_size: int = 128,
+               embed_size: int = 100, num_sampled: int = 64, steps: int = 50000):
     with open(src_filename, 'rb') as f:
       data = pickle.load(f)
       self.input = data['input']
       self.output = data['output']
       self.dictionary = data['dictionary']
       self.vocab_size = len(self.dictionary)
+    self.mode = mode
+    self.window_size = window_size
     self.start = 0
     self.dest_filename = dest_filename
     self.batch_size = batch_size
@@ -24,10 +26,16 @@ class SkipGram(object):
     self.embeddings = tf.Variable(tf.random_uniform([self.vocab_size, self.embed_size], -1.0, 1.0))
 
   def train(self):
-    train_inputs = tf.placeholder(tf.int32, shape=[self.batch_size])
+    if self.mode == 'skip_gram':
+      train_inputs = tf.placeholder(tf.int32, shape=[self.batch_size])
+    else:
+      train_inputs = tf.placeholder(tf.int32, shape=[self.batch_size, self.window_size])
     train_labels = tf.placeholder(tf.int32, shape=[self.batch_size, 1])
 
     embed = tf.nn.embedding_lookup(self.embeddings, train_inputs)
+    if self.mode == 'cbow':
+      # embed = tf.reduce_sum(embed, 1)
+      embed = tf.reduce_mean(embed, 1)
 
     nce_weights = tf.Variable(
       tf.truncated_normal([self.vocab_size, self.embed_size],
@@ -37,13 +45,13 @@ class SkipGram(object):
     loss = tf.reduce_mean(
       tf.nn.nce_loss(weights=nce_weights, biases=nce_biases, labels=train_labels, inputs=embed,
                      num_sampled=self.num_sampled, num_classes=self.vocab_size))
-    optimizer = tf.train.GradientDescentOptimizer(0.2).minimize(loss)
+    optimizer = tf.train.AdagradOptimizer(0.2).minimize(loss)
 
     with tf.Session() as sess:
       tf.global_variables_initializer().run()
 
       aver_loss = 0
-      for step in range(1,self.steps+1):
+      for step in range(1, self.steps + 1):
         batch_inputs, batch_labels = self.generate_batch()
         feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
         _, loss_val = sess.run([optimizer, loss], feed_dict=feed_dict)

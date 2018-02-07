@@ -118,8 +118,15 @@ def evaluate_ner(model, data_path:str):
       c_count += c
       p_count += p
       r_count += r
-    print(c_count / p_count)
-    print(c_count / r_count)
+    p = c_count/p_count
+    r = c_count/r_count
+    f1 = 2*p*r/(p+r)
+    print(p,r,f1)
+
+    return fmt(p*100),fmt(r*100),fmt(f1*100)
     # average = 'macro'
     # print(precision_score(all_labels_true, all_labels_predict, average=average))
     # print(recall_score(all_labels_true, all_labels_predict, average=average))
+
+def fmt(f):
+  return '{0:.2f}'.format(f)
