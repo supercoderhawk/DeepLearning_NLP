@@ -30,8 +30,8 @@ class DnnCrf(DnnCrfBase):
     with self.graph.as_default():
       # 构建
       # tf.reset_default_graph()
-      # self.transition = self.__get_variable([self.tags_count, self.tags_count], 'transition')
-      self.transition = tf.Variable(np.array([[-1,1,1,-1],[-1,1,1,-1],[1,-1,-1,1],[1,-1,-1,1]]),dtype=self.dtype,name= 'transition')
+      self.transition = self.__get_variable([self.tags_count, self.tags_count], 'transition')
+      # self.transition = tf.Variable(np.array([[-1,1,1,-1],[-1,1,1,-1],[1,-1,-1,1],[1,-1,-1,1]]),dtype=self.dtype,name= 'transition')
       self.transition_init = self.__get_variable([self.tags_count], 'transition_init')
       self.params = [self.transition, self.transition_init]
       # 输入层
