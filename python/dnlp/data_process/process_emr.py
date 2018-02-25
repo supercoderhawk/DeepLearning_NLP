@@ -56,6 +56,8 @@ class ProcessEMR(object):
       pickle.dump(self.relation_category_labels, f)
     self.two_categories = self.generate_re_two_training_data()
     self.multi_categories = self.generate_re_mutli_training_data()
+    with open(self.data_folder+'/emr_relation.rel','wb') as f:
+      pickle.dump(self.multi_categories,f)
     self.export_structured_emr()
     self.data = self.read_file()
     self.export()
@@ -75,7 +77,7 @@ class ProcessEMR(object):
     data = {}
     for f in self.files:
       file_data = {'entities': {}, 'relations': {}}
-      with open(self.data_folder + 'train/' + f + '.ann', encoding='utf-8') as f:
+      with open(self.data_folder + self.mode+'/' + f + '.ann', encoding='utf-8') as f:
         entries = [l.split('\t') for l in f.read().splitlines() if l]
         for entry in entries:
           idx = entry[0]

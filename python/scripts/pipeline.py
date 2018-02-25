@@ -2,6 +2,7 @@
 import numpy as np
 import pickle
 import json
+import pprint
 from operator import itemgetter
 from itertools import accumulate, permutations
 from dnlp.config.sequence_labeling_config import DnnCrfConfig
@@ -125,7 +126,7 @@ def rel_extract(sentences):
   true_primary = get_true_rel(primary)
   true_secondary = get_true_rel(secondary)
   multi_res = recnn.predict(true_sentence_words, true_primary, true_secondary)
-  get_rel_result(true_words,true_rel_pairs,multi_res)
+  return get_rel_result(true_words,true_rel_pairs,multi_res)
 
 def get_rel_result(words, rel_pairs,rel_types):
   result = {}
@@ -142,14 +143,14 @@ def get_rel_result(words, rel_pairs,rel_types):
       result[primary] = [rel]
     else:
       result[primary].append(rel)
-  print(result)
+  # print(result)
   merged_result = {t:[] for t in set([rel[0]['entity_type'] for rel in result.values() ])}
   for primary,value in result.items():
     res = {primary:{v['type']:v['value'] for v in value}}
     primary_type = value[0]['entity_type']
     merged_result[primary_type].append(res)
   print(merged_result)
-
+  return merged_result
 
 
 
@@ -167,5 +168,10 @@ def get_sentences(filename):
 
 
 if __name__ == '__main__':
-  sentences = get_sentences('996716_admission.txt')
-  rel_extract(sentences)
+  # filename = '994671_admission.txt'
+  filename = '996716_admission.txt'
+
+  sentences = get_sentences(filename)
+  res = rel_extract(sentences)
+  with open('../dnlp/data/emr/structured_example.json', 'w', encoding='utf-8') as f:
+    f.write(pprint.pformat(res, width=100).replace('\'', '"'))
