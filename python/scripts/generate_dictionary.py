@@ -4,7 +4,9 @@ import os
 import re
 import argparse
 from dnlp.utils.constant import BATCH_PAD, BATCH_PAD_VAL, UNK, UNK_VAL, STRT, STRT_VAL, END, END_VAL
+
 RE_SAPCE = re.compile('[ ]+')
+
 
 def generate_chinese_character_dictionary(files):
   rx = re.compile('\s')
@@ -17,19 +19,19 @@ def generate_chinese_character_dictionary(files):
   dictionary.update(new_dict)
   return dictionary
 
+
 def generate_word_dictionary(files):
   dictionary = {BATCH_PAD: BATCH_PAD_VAL, UNK: UNK_VAL, STRT: STRT_VAL, END: END_VAL}
   words = set()
   for file in files:
     with open(file, encoding='utf-8') as f:
-      lines = RE_SAPCE.sub(' ',f.read()).splitlines()
+      lines = RE_SAPCE.sub(' ', f.read()).splitlines()
       words.update(*[l.split(' ') for l in lines])
   if '' in words:
     words.remove('')
   new_dict = dict(zip(words, range(len(dictionary), len(dictionary) + len(words))))
   dictionary.update(new_dict)
   return dictionary
-
 
 
 def generate_dictionary_from_conll(files):
@@ -52,34 +54,37 @@ def output_dictionary(dictionary, filename):
     for ch in dictionary:
       f.write(ch + ' ' + str(dictionary[ch]) + '\n')
 
+
 def read_dictionary(filename):
   dictionary = {}
-  with open(filename,encoding='utf-8') as f:
+  with open(filename, encoding='utf-8') as f:
     entries = [l.split(' ') for l in f.read().splitlines()]
-    for e,idx in entries:
+    for e, idx in entries:
       dictionary[e] = idx
   return dictionary
+
 
 def merge(dictionaries):
   items = set()
   for d in dictionaries:
     items.update(read_dictionary(d).keys())
-  items.difference_update([BATCH_PAD,UNK,STRT,END])
-  dictionary={BATCH_PAD:BATCH_PAD_VAL,UNK:UNK_VAL,STRT:STRT_VAL,END:END_VAL}
+  items.difference_update([BATCH_PAD, UNK, STRT, END])
+  dictionary = {BATCH_PAD: BATCH_PAD_VAL, UNK: UNK_VAL, STRT: STRT_VAL, END: END_VAL}
   index = len(dictionary)
   for i in items:
     dictionary[i] = index
-    index+=1
+    index += 1
   return dictionary
+
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('--c', dest='conll', action='store_true', default=False)
   parser.add_argument('--r', dest='raw', action='store_true', default=False)
-  parser.add_argument('--w',dest='word',action='store_true',default=False)
+  parser.add_argument('--w', dest='word', action='store_true', default=False)
   parser.add_argument('files', nargs='*')
-  parser.add_argument('--folder', dest='folder',type=str,nargs='?')
-  parser.add_argument('--m',dest='merge',nargs='+')
+  parser.add_argument('--folder', dest='folder', type=str, nargs='?')
+  parser.add_argument('--m', dest='merge', nargs='+')
   parser.add_argument('--o', dest='o', nargs='?')
   args = parser.parse_args(sys.argv[1:])
   conll = args.conll
@@ -100,7 +105,7 @@ if __name__ == '__main__':
     dictionary = generate_chinese_character_dictionary(files)
   elif args.word:
     if args.folder:
-      filenames = [args.folder+fn for fn in os.listdir(args.folder)]
+      filenames = [args.folder + fn for fn in os.listdir(args.folder)]
       dictionary = generate_word_dictionary(filenames)
     else:
       dictionary = generate_word_dictionary(files)

@@ -94,7 +94,7 @@ def test_re_cnn(mode='two', remark=''):
       writer.writerow({'name': '_'.join(map(str, w)), 'p': fmt(p), 'r': fmt(r), 'f1': fmt(f1)})
 
 
-def get_re_cnn_result(mode='two'):
+def  get_re_cnn_result(mode='two'):
   if mode == 'two':
     relation_count = 2
   else:

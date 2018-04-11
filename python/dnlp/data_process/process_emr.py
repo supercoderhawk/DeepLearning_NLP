@@ -6,10 +6,12 @@ import random
 import json
 import pprint
 from collections import OrderedDict
-from itertools import chain
+from itertools import chain, permutations
+from collections import Counter
 from dnlp.utils.constant import UNK
 
 RE_SAPCE = re.compile('[ ]+')
+
 
 # print(pprint.pformat([1,[[2]],3,4444444444,77777777777777777777777777],indent=2,width=10))
 class ProcessEMR(object):
@@ -21,12 +23,14 @@ class ProcessEMR(object):
     self.directed = directed
     with open(self.relation_name_file, 'rb') as f:
       self.category_name = pickle.load(f)
+    with open(self.relation_pair_file, 'rb') as f:
+      self.relation_pair_names = pickle.load(f)
     # self.reversed_category_name = dict(zip(self.category_name.values(),self.category_name.keys()))
     self.mode = mode
     if self.mode == 'train':
-      self.window = 5
+      self.window = 200
     else:
-      self.window = 100
+      self.window = 200
     self.dict_path = dict_path
     self.files = self.get_files()
     self.annotations = self.read_annotations(directed)
@@ -51,17 +55,53 @@ class ProcessEMR(object):
     for relation_category in self.relation_categories:
       self.relation_category_labels[relation_category] = relation_category_index
       relation_category_index += 1
-    print(len(self.relation_category_labels))
+    # print(len(self.relation_category_labels))
     with open(self.base_folder + 'relation_index.pickle', 'wb') as f:
       pickle.dump(self.relation_category_labels, f)
     self.two_categories = self.generate_re_two_training_data()
     self.multi_categories = self.generate_re_mutli_training_data()
-    with open(self.data_folder+'/emr_relation.rel','wb') as f:
-      pickle.dump(self.multi_categories,f)
+    if mode == 'train' and directed:
+      with open(self.data_folder + '/emr_relation.rel', 'wb') as f:
+        pickle.dump(self.multi_categories, f)
     self.export_structured_emr()
     self.data = self.read_file()
     self.export()
     self.save_data()
+    self.export_type_dict()
+    self.export_relations()
+
+  def export_relations(self):
+    data = {}
+    for annotation in self.annotations:
+      filename = annotation['file']
+      entities = annotation['entities']
+
+      for relation in annotation['true_relations'].values():
+        ent1 = entities[relation['first']]
+        ent2 = entities[relation['second']]
+        rel = OrderedDict(
+          {'ent1': ent1['text'], 'ent2': ent2['text'], 'ent1_type': ent1['type'], 'ent2_type': ent2['type'],
+           'rel_type': relation['type']})
+        if filename not in data:
+          data[filename] = [rel]
+        else:
+          data[filename].append(rel)
+
+    with open(self.data_folder + '/emr_test_rel.pickle', 'wb') as f:
+      pickle.dump(data, f)
+
+  def export_type_dict(self):
+    entity_dict = {}
+    for annotation in self.annotations:
+      for entity in annotation['entities'].values():
+        entity_text = entity['text']
+        entity_type = entity['type']
+        if entity_text not in entity_dict:
+          entity_dict[entity_text] = [entity_type]
+        else:
+          entity_dict[entity_text].append(entity_type)
+    entity_dict = {k: Counter(v).most_common(1)[0][0] for k, v in entity_dict.items()}
+    # print(len(entity_dict))
 
   def statistics(self):
     true_count = 0
@@ -77,7 +117,7 @@ class ProcessEMR(object):
     data = {}
     for f in self.files:
       file_data = {'entities': {}, 'relations': {}}
-      with open(self.data_folder + self.mode+'/' + f + '.ann', encoding='utf-8') as f:
+      with open(self.data_folder + self.mode + '/' + f + '.ann', encoding='utf-8') as f:
         entries = [l.split('\t') for l in f.read().splitlines() if l]
         for entry in entries:
           idx = entry[0]
@@ -117,7 +157,7 @@ class ProcessEMR(object):
               attribute[self.relation_categories[rt]] = e2['text']
             else:
               if type(attribute[self.relation_categories[rt]]) == str:
-                attribute[self.relation_categories[rt]] = [attribute[self.relation_categories[rt]],e2['text']]
+                attribute[self.relation_categories[rt]] = [attribute[self.relation_categories[rt]], e2['text']]
               else:
                 attribute[self.relation_categories[rt]].append(e2['text'])
           if not result.get(e_type):
@@ -137,7 +177,7 @@ class ProcessEMR(object):
           # entity['attributes'] = attribute
         # result.append(entity)
       with open(self.base_folder + 'structured/' + filename + '.json', 'w', encoding='utf-8') as f:
-        f.write(pprint.pformat(new_result,width=100).replace('\'','"'))
+        f.write(pprint.pformat(new_result, width=100).replace('\'', '"'))
         # json.dump(new_result, f, ensure_ascii=False)
 
   def export_structured_emr(self):
@@ -160,7 +200,7 @@ class ProcessEMR(object):
       for r in true_relations:
         if relations.get(r['first']):
           relations[r['first']].append((r['second'], r['type']))
-          print(relations)
+          # print(relations)
         else:
           relations[r['first']] = [(r['second'], r['type'])]
       for e in entities:
@@ -206,7 +246,8 @@ class ProcessEMR(object):
       word_indices = self.map_to_indices(annotation['words'])
       for true_rel_name in annotation['true_relations']:
         true_rel = annotation['true_relations'][true_rel_name]
-        train_data.append({'words': word_indices, 'primary': true_rel['primary'], 'secondary': true_rel['secondary'],'type': self.relation_category_labels[true_rel['type']]})
+        train_data.append({'words': word_indices, 'primary': true_rel['primary'], 'secondary': true_rel['secondary'],
+                           'type': self.relation_category_labels[true_rel['type']]})
     return train_data
 
   def map_to_indices(self, words):
@@ -239,7 +280,7 @@ class ProcessEMR(object):
 
   def get_files(self):
     files = set()
-    print(os.path.abspath(self.data_folder))
+    # print(os.path.abspath(self.data_folder))
     for l in os.listdir(self.data_folder + self.mode + '/'):
       files.add(os.path.splitext(l)[0])
     return files
@@ -278,16 +319,17 @@ class ProcessEMR(object):
             print('fuck your world')
           sentence['new_entities'][entity['index']] = entity
 
-      data = self.read_relation_in_single_file(filename + '.ann', sentence_dict, directed)
+      # data = self.read_relation_in_single_file(filename + '.ann', sentence_dict, directed)
+      data = self.read_relation_in_single_file_permutation(filename + '.ann', sentence_dict, directed)
       all_sentences.extend(data.values())
     return all_sentences
 
-  def read_relation_in_single_file(self, ann_file, data, directed=False):
+  def read_relation_in_single_file_permutation(self, ann_file, data, directed=False):
     with open(ann_file, encoding='utf-8') as f:
       entries = map(lambda l: l.strip().split(' '), f.read().replace('\t', ' ').splitlines())
       for entry in entries:
-        id = entry[0]
-        if id.startswith('R'):
+        idx = entry[0]
+        if idx.startswith('R'):
           primary = entry[2][entry[2].find(':') + 1:]
           # print(primary)
           secondary = entry[3][entry[3].find(':') + 1:]
@@ -296,12 +338,63 @@ class ProcessEMR(object):
             entities = sentence['entities']
             # sentence['true_relations'] = {}
             if primary in entities and secondary in entities:
-              rel = {'id': id, 'primary': entities[primary]['index'], 'secondary': entities[secondary]['index'],
+              rel = {'id': idx, 'primary': entities[primary]['index'], 'secondary': entities[secondary]['index'],
                      'type': entry[1], 'first': primary, 'second': secondary}
-              if sentence.get('true_realtions'):
-                sentence['true_relations'][id] = rel
+              if sentence.get('true_relations'):
+                sentence['true_relations'][idx] = rel
               else:
-                sentence['true_relations'] = {id: rel}
+                sentence['true_relations'] = {idx: rel}
+      for sentence_text in data:
+        sentence = data[sentence_text]
+        if not sentence.get('true_relations'):
+          print('sentence no relations')
+          continue
+
+        true_pairs = [(l['primary'], l['secondary']) for l in sentence['true_relations'].values()]
+        comma_index = [i for i, w in enumerate(sentence['words']) if w in ('，', ',')]
+        all_info = {l['index']: l['type'] for l in sentence['entities'].values()}
+        # all_indices = sorted([l[0] for l in all_info])
+
+        if not comma_index or comma_index[-1] != len(sentence['words']):
+          comma_index.append(len(sentence['words']))
+        comma_index = [-1] + comma_index
+        rel_candidates = []
+        for s, e in zip(comma_index[:-1], comma_index[1:]):
+          entity_candidates = [i for i in all_info if s < i < e]
+          rel_candidates_raw = permutations(entity_candidates, 2)
+
+          for p, s in rel_candidates_raw:
+            p_type = all_info[p]
+            s_type = all_info[s]
+            if (p, s) not in true_pairs:
+              # if p_type in self.relation_pair_names and s_type in self.relation_pair_names[p_type]:
+              rel_candidates.append((p, s))
+
+        sentence['false_relations'] = {str(p) + '-' + str(s): {'primary': p, 'secondary': s} for p, s in rel_candidates}
+      remove_list = [s for s in data if not data[s].get('true_relations')]
+      [data.pop(s) for s in remove_list]
+      return data
+
+  def read_relation_in_single_file(self, ann_file, data, directed=False):
+    with open(ann_file, encoding='utf-8') as f:
+      entries = map(lambda l: l.strip().split(' '), f.read().replace('\t', ' ').splitlines())
+      for entry in entries:
+        idx = entry[0]
+        if idx.startswith('R'):
+          primary = entry[2][entry[2].find(':') + 1:]
+          # print(primary)
+          secondary = entry[3][entry[3].find(':') + 1:]
+          for sentence_text in data:
+            sentence = data[sentence_text]
+            entities = sentence['entities']
+            # sentence['true_relations'] = {}
+            if primary in entities and secondary in entities:
+              rel = {'id': idx, 'primary': entities[primary]['index'], 'secondary': entities[secondary]['index'],
+                     'type': entry[1], 'first': primary, 'second': secondary}
+              if sentence.get('true_relations'):
+                sentence['true_relations'][idx] = rel
+              else:
+                sentence['true_relations'] = {idx: rel}
 
       for sentence_text in data:
         sentence = data[sentence_text]

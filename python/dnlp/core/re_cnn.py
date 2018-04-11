@@ -184,6 +184,8 @@ class RECNN(RECNNBase):
     print(prec, recall, f1)
     return prec, recall, f1
 
+  def __conv_kernel_variable(self):
+    pass
   def __weight_variable(self, shape, name):
     initial = tf.truncated_normal(shape, stddev=0.1, dtype=self.dtype)
     return tf.Variable(initial, name=name)

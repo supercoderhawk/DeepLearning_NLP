@@ -103,7 +103,7 @@ class DnnCrfBase(object):
     self.batch_start = new_start
     return self.indices2input(chs_batch), np.array(lls_batch, dtype=np.int32), np.array(len_batch, dtype=np.int32)
 
-  def viterbi(self, emission: np.ndarray, transition: np.ndarray, transition_init: np.ndarray,padding_length=-1):
+  def viterbi(self, emission: np.ndarray, transition: np.ndarray, transition_init: np.ndarray,labels:np.ndarray=None,padding_length=-1):
     length = emission.shape[1]
     if padding_length == -1:
       padding_length = length
@@ -116,10 +116,14 @@ class DnnCrfBase(object):
       for t in range(self.tags_count):
         for prev in range(self.tags_count):
           temp = path_score[prev][pos - 1] + transition[prev][t] + emission[t][pos]
+          if labels[pos-1]!= prev:
+            temp+= self.hinge_rate
           if temp >= path_score[t][pos]:
             path[t][pos] = prev
             path_score[t][pos] = temp
-
+    for i in range(self.tags_count):
+      if i!= labels[length-1]:
+        path_score[i][length-1]+=self.tags_count
     max_index = np.argmax(path_score[:, -1])
     corr_path[length - 1] = max_index
     for i in range(length - 1, 0, -1):
@@ -170,27 +174,21 @@ class DnnCrfBase(object):
 
     return words
 
-  def tags2entities(self, sentence: str, tags_seq: np.ndarray, return_start: bool = False):
-    entities = []
-    entity_starts = []
-    entity = ''
+  def tags2entities(self, sentence: str, tags_seq: np.ndarray, return_start: bool = True):
+    entity_spans = {}
+    entity_start = -1
 
     for tag_index, tag in enumerate(tags_seq):
-      if tag == self.tags_map[TAG_OTHER]:
-        continue
-      elif tag == self.tags_map[TAG_BEGIN]:
-        if entity:
-          entities.append((entity,tag_index))
-        entity = sentence[tag_index]
-        entity_starts.append(tag_index)
-      else:
-        entity += sentence[tag_index]
-    if entity != '':
-      entities.append((entity,len(sentence)-len(entity)))
+      if tag == self.tags_map[TAG_BEGIN]:
+        entity_spans[tag_index] = tag_index
+        entity_start = tag_index
+      elif tag == self.tags_map[TAG_INSIDE]:
+        entity_spans[entity_start] = tag_index
+
     if return_start:
-      return entities, entity_starts
+      return [(sentence[s:e+1],s) for s,e in entity_spans.items()]
     else:
-      return entities
+      return [sentence[s:e+1] for s,e in entity_spans.items()]
 
   def tag2sequences(self, tags_seq: np.ndarray):
     seq = []
