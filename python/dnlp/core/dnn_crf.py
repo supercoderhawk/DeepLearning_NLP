@@ -174,17 +174,17 @@ class DnnCrf(DnnCrfBase):
         start = time.time()
         for i in range(self.batch_count):
           sentences, labels, lengths = self.get_batch()
-          # transition = self.transition.eval()
-          # transition_init = self.transition_init.eval()
+          transition = self.transition.eval()
+          transition_init = self.transition_init.eval()
           feed_dict = {self.input: sentences, self.seq_length: lengths}
           output = sess.run(self.output, feed_dict=feed_dict)
           pred_seq = []
-          seq = sess.run(self.seq, feed_dict=feed_dict)
-          # for i in range(self.batch_size):
-          #   seq = sess.run(self.seq,feed_dict=feed_dict)
-          # pred_seq.append(self.viterbi(output[i, :lengths[i], :].T, transition, transition_init, self.batch_length))
+          # seq = sess.run(self.seq, feed_dict=feed_dict)
+          for i in range(self.batch_size):
+            # seq = sess.run(self.seq,feed_dict=feed_dict)
+            pred_seq.append(self.viterbi(output[i, :lengths[i], :].T, transition, transition_init, self.batch_length))
           # pred_seq.append(seq)
-          feed_dict = {self.true_seq: labels, self.pred_seq: seq, self.output_placeholder: output}
+          feed_dict = {self.true_seq: labels, self.pred_seq: pred_seq, self.output_placeholder: output}
           if epoch > 2:
             self.eval_params(sess, feed_dict)
           sess.run(self.train_model, feed_dict=feed_dict)
