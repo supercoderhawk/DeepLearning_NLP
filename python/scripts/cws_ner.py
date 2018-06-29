@@ -22,7 +22,7 @@ def train_cws():
 def test_cws():
   # sentence = '小明来自南京师范大学'
   sentence = '中国人民决心继承邓小平同志的遗志，继续把建设有中国特色社会主义事业推向前进。'
-  model_path = '../dnlp/models/cws-lstm-2.ckpt'
+  model_path = '../dnlp/models/cws-lstm-1.ckpt'
   config = DnnCrfConfig()
   dnncrf = DnnCrf(config=config, mode='predict', model_path=model_path, nn='lstm')
   res, labels = dnncrf.predict(sentence, return_labels=True)

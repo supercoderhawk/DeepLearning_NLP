@@ -103,7 +103,9 @@ class DnnCrfBase(object):
     self.batch_start = new_start
     return self.indices2input(chs_batch), np.array(lls_batch, dtype=np.int32), np.array(len_batch, dtype=np.int32)
 
-  def viterbi(self, emission: np.ndarray, transition: np.ndarray, transition_init: np.ndarray,labels:np.ndarray=None,padding_length=-1):
+  def viterbi(self, emission: np.ndarray, transition: np.ndarray, transition_init: np.ndarray,labels:np.ndarray=None,
+              padding_length=-1, is_constraint=False):
+    constraint = [[1,2],[1,2],[0,3],[0,3]]
     length = emission.shape[1]
     if padding_length == -1:
       padding_length = length
@@ -111,19 +113,28 @@ class DnnCrfBase(object):
     corr_path = np.zeros([padding_length], dtype=np.int32)
     path_score = np.ones([self.tags_count, length], dtype=np.float64) * (np.finfo('f').min/2)
     path_score[:, 0] = transition_init + emission[:, 0]
+    path[:,0] = np.arange(0,4)
+    if labels is not None:
+      for i in range(self.tags_count):
+        if i!= labels[0]:
+          path_score[i,0]+=self.hinge_rate
 
     for pos in range(1, length):
       for t in range(self.tags_count):
         for prev in range(self.tags_count):
+          if is_constraint and t not in constraint[prev]:
+              continue
+          # prev = path[prev_index, pos-1]
           temp = path_score[prev][pos - 1] + transition[prev][t] + emission[t][pos]
-          if labels[pos-1]!= prev:
-            temp+= self.hinge_rate
+          if labels is not None:
+            if labels[pos]!= t:
+              temp+= self.hinge_rate
           if temp >= path_score[t][pos]:
             path[t][pos] = prev
             path_score[t][pos] = temp
-    for i in range(self.tags_count):
-      if i!= labels[length-1]:
-        path_score[i][length-1]+=self.tags_count
+    # for i in range(self.tags_count):
+    #   if i!= labels[length-1]:
+    #     path_score[i][length-1]+=self.tags_count
     max_index = np.argmax(path_score[:, -1])
     corr_path[length - 1] = max_index
     for i in range(length - 1, 0, -1):

@@ -10,7 +10,7 @@ from dnlp.config.sequence_labeling_config import DnnCrfConfig
 
 class DnnCrf(DnnCrfBase):
   def __init__(self, *, config: DnnCrfConfig = None, task='cws', data_path: str = '', dtype: type = tf.float32,
-               mode: str = 'train', dropout_position: str = 'input', train: str = 'mm', predict: str = 'll', nn: str,
+               mode: str = 'train', dropout_position: str = 'input', train: str = 'mm', predict: str = 'mm', nn: str,
                model_path: str = '',
                embedding_path: str = '', remark: str = ''):
     if mode not in ['train', 'predict']:
@@ -75,7 +75,8 @@ class DnnCrf(DnnCrfBase):
       if mode == 'predict':
         if predict != 'll':
           self.output = tf.squeeze(tf.transpose(self.output), axis=2)
-        self.seq, self.best_score = tf.contrib.crf.crf_decode(self.output, self.transition, self.seq_length)
+        if predict == 'll':
+          self.seq, self.best_score = tf.contrib.crf.crf_decode(self.output, self.transition, self.seq_length)
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
         tf.train.Saver().restore(save_path=self.model_path, sess=self.sess)
@@ -105,16 +106,16 @@ class DnnCrf(DnnCrfBase):
                                                          tf.expand_dims(self.pred_seq[:, 0], 1)) - tf.gather_nd(
             self.transition_init, tf.expand_dims(self.true_seq[:, 0], 1))
           self.hinge_loss = tf.count_nonzero(self.pred_seq - self.true_seq, axis=1, dtype=self.dtype)
-          self.seq, self.best_score = tf.contrib.crf.crf_decode(self.output, self.transition, self.seq_length)
+          # self.seq, self.best_score = tf.contrib.crf.crf_decode(self.output, self.transition, self.seq_length)
           # self.score_diff = self.state_difference + self.transition_difference + self.init_transition_difference + self.hinge_rate*self.hinge_loss
           self.score_diff = self.state_difference + self.transition_difference + self.hinge_rate * self.hinge_loss
           self.loss = tf.reduce_sum(tf.maximum(0.0, self.score_diff)) / self.batch_size + self.regularization
-        self.learning_rate = 0.005
-        self.optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
-        # self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
+        # self.learning_rate = 0.005
+        # self.optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+        self.optimizer = tf.train.AdagradOptimizer(self.learning_rate)
         # self.new_optimizer = tf.train.AdamOptimizer()
-        gvs = self.optimizer.compute_gradients(self.loss)
-        cliped_grad = [(tf.clip_by_norm(grad, 10) if grad is not None else grad, var) for grad, var in gvs]
+        # gvs = self.optimizer.compute_gradients(self.loss)
+        # cliped_grad = [(tf.clip_by_norm(grad, 10) if grad is not None else grad, var) for grad, var in gvs]
         # self.train_model = self.optimizer.apply_gradients(cliped_grad)
         self.train_model = self.optimizer.minimize(self.loss)
 
@@ -172,7 +173,7 @@ class DnnCrf(DnnCrfBase):
       for epoch in range(1, epochs + 1):
         print('epoch:', epoch)
         start = time.time()
-        for i in range(self.batch_count):
+        for j in range(self.batch_count):
           sentences, labels, lengths = self.get_batch()
           transition = self.transition.eval()
           transition_init = self.transition_init.eval()
@@ -182,11 +183,13 @@ class DnnCrf(DnnCrfBase):
           # seq = sess.run(self.seq, feed_dict=feed_dict)
           for i in range(self.batch_size):
             # seq = sess.run(self.seq,feed_dict=feed_dict)
-            pred_seq.append(self.viterbi(output[i, :lengths[i], :].T, transition, transition_init, self.batch_length))
+            seq = self.viterbi(output[i, :lengths[i], :].T, transition, transition_init, labels[i],
+                               self.batch_length,True)
+            pred_seq.append(seq)
           # pred_seq.append(seq)
           feed_dict = {self.true_seq: labels, self.pred_seq: pred_seq, self.output_placeholder: output}
-          if epoch > 2:
-            self.eval_params(sess, feed_dict)
+          # if epoch > 2:
+          #   self.eval_params(sess, feed_dict)
           sess.run(self.train_model, feed_dict=feed_dict)
         if epoch % interval == 0:
           if not self.embedding_path:
@@ -214,8 +217,8 @@ class DnnCrf(DnnCrfBase):
     input = self.indices2input(self.sentence2indices(sentence))
     runner = [self.output, self.transition, self.transition_init]
     output, trans, trans_init = self.sess.run(runner, feed_dict={self.input: input, self.seq_length: [len(sentence)]})
-    output = np.squeeze(output, 0)
-    labels = self.viterbi(output.T, trans, trans_init)
+    # output = np.squeeze(output, 0)
+    labels = self.viterbi(output, trans, trans_init)
     if self.task == 'cws':
       result = self.tags2words(sentence, labels)
     else:
