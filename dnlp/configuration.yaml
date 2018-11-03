@@ -1,0 +1,5 @@
+nn_crf:
+  skip_right: 1
+  skip_left: 1
+  learning_rate: 0.01
+

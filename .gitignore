@@ -165,5 +165,4 @@ ENV/
 .mypy_cache/
 
 tmp/
-python/dnlp/data/
-python/dnlp/models/
+data/

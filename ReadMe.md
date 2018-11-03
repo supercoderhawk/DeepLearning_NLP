@@ -6,52 +6,15 @@
 
 * `python >= 3.5`
 * `tensorflow >= 1.3.0`
-* `sklearn`
-* `scipy`
 
 ## 项目结构
 本项目的核心代码位于`python\dnlp`目录下
 
-```bash
-python/dnlp
-│  cws.py   # 分词
-│  ner.py   # 命名实体识别
-│  rel_extract.py # 关系抽取
-│  __init__.py
-│
-├─config
-│     config.py  # 配置项
-│     __init__.py
-│  
-├─core  # 核心功能模块
-│  │  dnn_crf.py    # 基于dnn-crf的序列标注
-│  │  dnn_crf_base.py # 基于dnn-crf的序列标注的基类
-│  │  mmtnn.py      # max-margin tensor nural network模型
-│  │  re_cnn.py     # 基于cnn的关系抽取
-│  │  __init__.py
-│  
-├─data_process  # 训练和测试数据的预处理
-│     processor.py  # 基类
-│     process_cws.py  # 对分词的预处理 
-│     process_emr.py 
-│     process_ner.py  # 对命名实体识别的预处理
-│     process_pos.py  # 对词性标注的预处理
-│     __init__.py
-│  
-│
-├─models  # 保存训练后的模型
-│
-├─scripts # 运行脚本，包括初始化数据集和训练测试等等
-│     init_datasets.py  # 初始化训练数据
-│     cws_ner.py    # 进行分词和命名实体识别的训练和使用
-│     __init__.py
-│
-├─tests  # 单元测试
-├─utils  # 公用函数
-      constant.py  # 一些常量
-      __init__.py
-  
-```
+* `dnlp\data_process`: 数据预处理。
+* `dnlp\seq_label`: 序列标注的模型代码，可用于分词、词性标注和实体识别。
+* `dnlp\rel_extract`: 关系抽取的模型代码。
+* `dnlp\joint_extract`: 实体和关系联合抽取的模型代码。
+* `dnlp\runner`: 运行脚本
 
 ## 运行
 
@@ -78,7 +41,7 @@ python python\scripts\cws_ner.py -p
 * [Max-Margin Tensor Neural Network for Chinese Word Segmentation](www.aclweb.org/anthology/P14-1028) （待实现，文件[`mmtnn.py`](https://github.com/supercoderhawk/DeepLearning_NLP/blob/master/python/dnlp/core/mmtnn.py)）
 
 ## 实体关系抽取
-* [relation extraction: perspective from convolutional neural networks](http://aclweb.org/anthology/W15-1506) （待实现，文件[`re_cnn.py`](https://github.com/supercoderhawk/DeepLearning_NLP/blob/master/python/dnlp/core/re_cnn.py)）
+* [relation extraction: perspective from convolutional neural networks](http://aclweb.org/anthology/W15-1506) （已实现，文件[`re_cnn.py`](https://github.com/supercoderhawk/DeepLearning_NLP/blob/master/python/dnlp/core/re_cnn.py)）
 
 
 ## ToDo-List
